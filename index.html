@@ -72,6 +72,17 @@
   }
   textarea:focus{border-color:var(--ink)}
   .autosave{font-size:10.5px;color:var(--sub);margin-top:6px;text-align:right;height:14px}
+  .pchips{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 12px}
+  .pchip{
+    border:1.5px solid var(--line);background:#FAFAF8;border-radius:99px;
+    font:inherit;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;color:var(--ink);
+  }
+  .pchip:active{background:var(--line)}
+  .pchip.manage{color:var(--sub);border-style:dashed}
+  .plist{margin:12px 0 4px}
+  .prow{display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .prow:last-child{border:0}
+  .prow .txt{flex:1;font-size:14px;font-weight:600;word-break:break-all}
 
   .bigbtn{
     width:100%;margin-top:12px;border:0;border-radius:14px;
@@ -272,7 +283,8 @@
       <div class="punch"><div class="dashline"></div></div>
       <div class="earnzone">
         <label for="deed">오늘 무엇을 지켰나요?</label>
-        <textarea id="deed" placeholder="예) 아침 다짐 지키기 완료, 물 8잔 마시기 성공"></textarea>
+        <div class="pchips" id="presetChips"></div>
+        <textarea id="deed" placeholder="직접 적거나 위에서 골라보세요"></textarea>
         <div class="autosave" id="draftHint"></div>
         <button class="bigbtn" id="earnBtn">적립하기 +1</button>
       </div>
@@ -326,6 +338,15 @@
         <h3>영수증 이름 <span>(상단 큰 글씨)</span></h3>
         <input type="text" class="txtinput" id="rcptName" placeholder="예: MINJI, 나의 상점">
       </div>
+      <div class="setrow">
+        <h3>데이터 백업 <span>(기기 변경·유실 대비)</span></h3>
+        <div class="daterow">
+          <button class="smallbtn" id="expBtn" style="flex:1">파일로 내보내기</button>
+          <button class="smallbtn" id="impBtn" style="flex:1">파일 불러오기</button>
+        </div>
+        <input type="file" id="impFile" accept=".json,application/json" style="display:none">
+        <p style="font-size:10.5px;color:var(--sub);margin-top:10px;line-height:1.6">내보내기한 백업 파일(.json)을 보관해두면, 다른 기기나 초기화 후에도 불러오기로 그대로 복원할 수 있어요.</p>
+      </div>
       <div class="setrow" style="text-align:center">
         <button class="smallbtn danger" id="resetBtn">모든 데이터 초기화</button>
         <p style="font-size:10.5px;color:var(--sub);margin-top:10px">모든 변경사항은 이 기기에 자동 저장됩니다.</p>
@@ -344,6 +365,21 @@
     <div class="sheetbtns">
       <button class="bigbtn ghost" data-close>취소</button>
       <button class="bigbtn" id="vSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 다짐 리스트 관리 -->
+<div class="modal" id="presetModal">
+  <div class="sheet">
+    <h2>다짐 리스트</h2>
+    <div class="daterow">
+      <input type="text" class="txtinput" id="pInput" placeholder="자주 지키는 다짐 (예: 아침 스트레칭)" maxlength="40" style="flex:1">
+      <button class="smallbtn" id="pAdd">추가</button>
+    </div>
+    <div class="plist" id="pList"></div>
+    <div class="sheetbtns">
+      <button class="bigbtn ghost" data-close>닫기</button>
     </div>
   </div>
 </div>
@@ -399,7 +435,7 @@ const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
   appName:'티끌상점', icon:'🍀', rcptName:'',
-  earns:[], vouchers:[], wallet:[],
+  earns:[], vouchers:[], wallet:[], presets:[],
   evDays:[], evDates:[], draft:'',
   rcptTheme:{bg:'#F6BBD1',ink:'#1A1A1A'}
 }}
@@ -485,8 +521,61 @@ function render(){
   const ev=isEventToday();
   $('#eventBox').innerHTML=ev?`<div><span class="eventbadge">EVENT · 오늘은 더블 적립 x2</span></div>`:'';
   $('#earnBtn').textContent=ev?'적립하기 +2':'적립하기 +1';
-  renderVouchers();renderWallet();renderLog();renderSettings();
+  renderPresetChips();renderVouchers();renderWallet();renderLog();renderSettings();
 }
+
+/* ── 다짐 리스트: 칩 탭 → 입력창에 채우기, 관리에서 추가/수정/삭제/순서변경 ── */
+function renderPresetChips(){
+  const box=$('#presetChips');
+  box.innerHTML=S.presets.map((p,i)=>
+    `<button class="pchip" onclick="usePreset(${i})">${esc(p.text)}</button>`).join('')
+    +`<button class="pchip manage" onclick="openPresets()">+ 리스트 관리</button>`;
+}
+window.usePreset=i=>{
+  const p=S.presets[i];if(!p)return;
+  deedEl.value=p.text;S.draft=p.text;save();
+};
+let pEditIdx=null;
+window.openPresets=()=>{
+  pEditIdx=null;$('#pInput').value='';$('#pAdd').textContent='추가';
+  renderPList();$('#presetModal').classList.add('on');
+};
+function renderPList(){
+  const box=$('#pList');
+  if(!S.presets.length){
+    box.innerHTML=`<div class="empty" style="padding:24px 10px">자주 지키는 다짐을 등록해두면<br>적립할 때 탭 한 번으로 채울 수 있어요</div>`;
+    return;
+  }
+  box.innerHTML=S.presets.map((p,i)=>`
+    <div class="prow">
+      <span class="txt">${esc(p.text)}</span>
+      <button class="tbtn" onclick="movePreset(${i},-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
+      <button class="tbtn" onclick="movePreset(${i},1)" ${i===S.presets.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
+      <button class="tbtn" onclick="editPreset(${i})" aria-label="수정">${IC.edit}</button>
+      <button class="tbtn" onclick="delPreset(${i})" aria-label="삭제">${IC.trash}</button>
+    </div>`).join('');
+}
+$('#pAdd').onclick=()=>{
+  const v=$('#pInput').value.trim();
+  if(!v){toast('다짐 내용을 입력해주세요');return}
+  if(pEditIdx===null)S.presets.push({id:uid(),text:v});
+  else{S.presets[pEditIdx].text=v;pEditIdx=null;$('#pAdd').textContent='추가'}
+  $('#pInput').value='';save();renderPList();renderPresetChips();
+};
+window.movePreset=(i,dir)=>{
+  const j=i+dir;if(j<0||j>=S.presets.length)return;
+  [S.presets[i],S.presets[j]]=[S.presets[j],S.presets[i]];
+  save();renderPList();renderPresetChips();
+};
+window.editPreset=i=>{
+  pEditIdx=i;$('#pInput').value=S.presets[i].text;
+  $('#pAdd').textContent='저장';$('#pInput').focus();
+};
+window.delPreset=i=>{
+  if(!confirm('이 다짐을 리스트에서 삭제할까요?'))return;
+  if(pEditIdx===i){pEditIdx=null;$('#pInput').value='';$('#pAdd').textContent='추가'}
+  S.presets.splice(i,1);save();renderPList();renderPresetChips();
+};
 
 /* ── 상점 (템플릿: 수정/삭제/순서변경) ── */
 function renderVouchers(){
@@ -825,6 +914,45 @@ $('#resetBtn').onclick=()=>{
   if(confirm('정말 모든 데이터를 지울까요? 되돌릴 수 없어요.')){
     S=defaults();save();render();toast('초기화 완료');
   }
+};
+
+/* ── 데이터 백업: 내보내기(공유/다운로드) & 불러오기 ── */
+$('#expBtn').onclick=async()=>{
+  const fname=`${S.appName}-backup-${todayStr()}.json`;
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  // 모바일: 공유 시트 (파일에 저장 선택 가능)
+  if(navigator.canShare){
+    const file=new File([blob],fname,{type:'application/json'});
+    if(navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file]});toast('백업 파일을 내보냈어요 📦');return}
+      catch(e){if(e.name==='AbortError')return}
+    }
+  }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=fname;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  toast('백업 파일을 다운로드했어요 📦');
+};
+$('#impBtn').onclick=()=>$('#impFile').click();
+$('#impFile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d||!Array.isArray(d.earns))throw new Error('invalid');
+      if(!confirm('불러오면 지금 데이터가 백업 파일 내용으로 완전히 교체돼요. 계속할까요?')){e.target.value='';return}
+      S=Object.assign(defaults(),d);
+      if(!Array.isArray(S.wallet))S.wallet=[];
+      if(!Array.isArray(S.presets))S.presets=[];
+      S.earns.forEach(x=>{if(typeof x.usedAmt!=='number')x.usedAmt=x.usedBy?x.amt:0});
+      deedEl.value=S.draft||'';
+      save();render();toast('불러오기 완료! ✅');
+    }catch(err){toast('올바른 백업 파일이 아니에요')}
+    e.target.value='';
+  };
+  r.readAsText(f);
 };
 
 /* ── modal close ── */
