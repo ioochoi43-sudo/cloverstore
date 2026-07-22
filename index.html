@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#EDEDEA">
+<title>티끌상점</title>
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="티끌상점">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#EDEDEA; --ticket:#FDFDFB; --ink:#1B1B19; --sub:#9C9C96;
+    --line:#E3E3DE; --green:#2E7D4F; --pink:#F6BBD1; --red:#C4526A;
+    --radius:18px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;
+    max-width:480px;margin:0 auto;padding-bottom:60px;letter-spacing:-0.01em;
+  }
+  .mono{font-family:"SF Mono","Menlo","Consolas","Courier New",monospace;letter-spacing:0}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:20px 22px 4px}
+  header h1{font-size:17px;font-weight:800;letter-spacing:.02em}
+  header .hint{font-size:11px;color:var(--sub)}
+
+  nav{display:flex;gap:2px;padding:10px 12px 14px;position:sticky;top:0;background:var(--bg);z-index:5;overflow-x:auto}
+  nav::-webkit-scrollbar{display:none}
+  nav button{
+    border:0;background:none;font:inherit;font-size:13.5px;font-weight:600;
+    color:var(--sub);padding:8px 9px;cursor:pointer;position:relative;white-space:nowrap;
+  }
+  nav button.on{color:var(--ink)}
+  nav button.on::before{content:"";position:absolute;left:1px;top:9px;bottom:9px;width:2px;background:var(--ink)}
+  main{padding:0 14px}
+  section{display:none}
+  section.on{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .ticket{
+    background:var(--ticket);border-radius:var(--radius);
+    box-shadow:0 1px 2px rgba(0,0,0,.05),0 8px 24px rgba(0,0,0,.05);
+    position:relative;margin-bottom:14px;overflow:hidden;
+  }
+  .punch{position:relative}
+  .punch::before,.punch::after{
+    content:"";position:absolute;width:18px;height:18px;border-radius:50%;
+    background:var(--bg);top:50%;transform:translateY(-50%);z-index:2;
+  }
+  .punch::before{left:-9px}.punch::after{right:-9px}
+  .dashline{border-top:2px dashed var(--line);margin:0 22px}
+
+  .balance{padding:26px 24px 20px;text-align:center}
+  .balance .date{font-size:11px;color:var(--sub);margin-bottom:14px;letter-spacing:.08em}
+  .balance .icon{font-size:34px;line-height:1}
+  .balance .num{font-size:56px;font-weight:800;line-height:1.05;margin:6px 0 2px}
+  .balance .label{font-size:12px;color:var(--sub);letter-spacing:.14em}
+  .streak{display:inline-flex;align-items:center;gap:6px;margin-top:14px;font-size:12px;font-weight:600;color:var(--green);background:rgba(46,125,79,.08);padding:5px 12px;border-radius:99px}
+  .eventbadge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;font-weight:700;color:#1A1A1A;background:var(--pink);padding:5px 12px;border-radius:99px}
+
+  .earnzone{padding:18px 22px 22px}
+  .earnzone label{font-size:12px;font-weight:600;color:var(--sub);display:block;margin-bottom:8px}
+  textarea{
+    width:100%;border:1.5px solid var(--line);border-radius:12px;
+    padding:12px 14px;font:inherit;font-size:15px;resize:none;height:74px;
+    background:#FAFAF8;outline:none;
+  }
+  textarea:focus{border-color:var(--ink)}
+  .autosave{font-size:10.5px;color:var(--sub);margin-top:6px;text-align:right;height:14px}
+
+  .bigbtn{
+    width:100%;margin-top:12px;border:0;border-radius:14px;
+    background:var(--ink);color:#fff;font:inherit;font-size:15.5px;font-weight:700;
+    padding:16px;cursor:pointer;transition:transform .1s;
+  }
+  .bigbtn:active{transform:scale(.98)}
+  .bigbtn:disabled{opacity:.35}
+  .ghost{background:none;color:var(--sub);border:1.5px solid var(--line)}
+
+  /* voucher / wallet cards */
+  .voucher{display:flex;align-items:stretch;min-height:96px;position:relative}
+  .voucher .left{width:88px;display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0}
+  .voucher .sep{border-left:2px dashed var(--line);position:relative;flex-shrink:0}
+  .voucher .sep::before,.voucher .sep::after{
+    content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:var(--bg);left:-9px;
+  }
+  .voucher .sep::before{top:-8px}.voucher .sep::after{bottom:-8px}
+  .voucher .body{flex:1;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+  .voucher .name{font-size:15px;font-weight:800;word-break:break-all}
+  .voucher .cost{font-size:12px;color:var(--sub)}
+  .voucher .cost b{font-size:16px;color:var(--ink);font-weight:800}
+  .voucher .act{display:flex;flex-direction:column;justify-content:center;gap:5px;padding-right:14px;align-items:flex-end}
+  .smallbtn{
+    border:1.5px solid var(--ink);background:none;border-radius:99px;
+    font:inherit;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;color:var(--ink);
+  }
+  .smallbtn.fill{background:var(--ink);color:#fff}
+  .smallbtn:disabled{opacity:.3}
+  .tools{display:flex;gap:2px}
+  .tbtn{
+    border:0;background:none;color:var(--sub);cursor:pointer;
+    width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+    border-radius:8px;line-height:1;font-family:inherit;padding:0;
+  }
+  .tbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .tbtn:disabled{opacity:.25}
+  .tbtn:active{background:var(--line)}
+  .empty{text-align:center;color:var(--sub);font-size:13px;padding:44px 20px;line-height:1.7}
+
+  /* used stamp */
+  .usedcard .body,.usedcard .left{opacity:.4}
+  .usedstamp{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);
+    border:2.5px solid var(--red);color:var(--red);font-weight:900;font-size:15px;
+    padding:4px 14px;border-radius:8px;letter-spacing:.2em;pointer-events:none;z-index:3;
+    background:rgba(253,253,251,.7);
+  }
+  .subline{font-size:10.5px;color:var(--sub)}
+
+  /* log */
+  .log{padding:6px 0}
+  .logitem{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:13px 18px 13px 22px;border-bottom:1px solid var(--line)}
+  .logitem:last-child{border:0}
+  .logitem .what{font-size:14px;font-weight:600;word-break:break-all}
+  .logitem .when{font-size:10.5px;color:var(--sub);margin-top:2px}
+  .logitem .amt{font-size:14px;font-weight:800;white-space:nowrap}
+  .amt.plus{color:var(--green)} .amt.minus{color:var(--red)}
+  .usedrow{opacity:.5}
+  .tag{font-size:9.5px;color:var(--sub);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+  .tag.x2{color:var(--red);border-color:var(--pink)}
+
+  /* settings */
+  .setrow{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .setrow:last-child{border:0}
+  .setrow h3{font-size:13px;font-weight:700;margin-bottom:12px}
+  .setrow h3 span{color:var(--sub);font-weight:400}
+  .iconpick{display:flex;gap:10px}
+  .iconpick button{flex:1;font-size:26px;padding:12px 0;border-radius:12px;cursor:pointer;border:1.5px solid var(--line);background:#FAFAF8}
+  .iconpick button.on{border-color:var(--ink);background:#fff}
+  .days{display:flex;gap:6px}
+  .days button{flex:1;font:inherit;font-size:12.5px;font-weight:700;padding:10px 0;border-radius:10px;border:1.5px solid var(--line);background:#FAFAF8;cursor:pointer;color:var(--sub)}
+  .days button.on{background:var(--pink);border-color:var(--pink);color:#1A1A1A}
+  .daterow{display:flex;gap:8px}
+  .txtinput{
+    width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;
+    font:inherit;font-size:14px;background:#FAFAF8;outline:none;min-width:0;
+  }
+  .txtinput:focus{border-color:var(--ink)}
+  .chip{display:inline-flex;align-items:center;gap:6px;margin:6px 6px 0 0;background:#FAFAF8;border:1px solid var(--line);border-radius:99px;font-size:12px;font-weight:600;padding:5px 10px}
+  .chip button{border:0;background:none;cursor:pointer;color:var(--sub);font-size:13px;line-height:1}
+  .danger{color:var(--red);border-color:var(--red)}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(20,20,18,.45);z-index:50;display:none;align-items:flex-end;justify-content:center}
+  .modal.on{display:flex}
+  .sheet{
+    background:var(--ticket);width:100%;max-width:480px;
+    border-radius:22px 22px 0 0;padding:24px 22px calc(24px + env(safe-area-inset-bottom));
+    animation:up .28s cubic-bezier(.2,.9,.3,1);max-height:90vh;overflow-y:auto;
+  }
+  @keyframes up{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+  .sheet h2{font-size:16px;font-weight:800;margin-bottom:16px}
+  .sheet .txtinput,.sheet textarea{margin-bottom:10px}
+  .sheetbtns{display:flex;gap:8px;margin-top:6px}
+  .sheetbtns .bigbtn{margin-top:0}
+
+  /* receipt */
+  .rcptwrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .receipt{
+    width:300px;background:var(--rbg,#F6BBD1);color:var(--rink,#1A1A1A);
+    padding:26px 20px 30px;
+    font-family:"SF Mono","Menlo","Consolas","Courier New",monospace;
+    font-size:11px;line-height:1.55;letter-spacing:0;
+    box-shadow:0 10px 30px rgba(0,0,0,.18);
+  }
+  .receipt .brand{
+    font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;
+    font-size:38px;font-weight:900;text-align:center;letter-spacing:-0.03em;
+    line-height:1.05;margin:6px 0 14px;word-break:keep-all;
+  }
+  .receipt .stars{text-align:center;overflow:hidden;white-space:nowrap;margin:8px 0}
+  .receipt .row{display:flex;justify-content:space-between;gap:10px}
+  .receipt .row .v{text-align:right;word-break:break-all}
+  .receipt .items{margin:10px 0}
+  .receipt .item{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin:5px 0}
+  .receipt .item .nm{flex:1;word-break:break-all}
+  .receipt .item .dots{flex-shrink:1;overflow:hidden;white-space:nowrap;opacity:.45;min-width:16px}
+  .receipt .item .no{font-weight:700;font-size:13px}
+  .receipt .total{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-top:8px}
+  .barcode{
+    height:52px;margin:14px 4px 4px;
+    background:repeating-linear-gradient(90deg,
+      var(--rink,#111) 0 2px, transparent 2px 4px,
+      var(--rink,#111) 4px 5px, transparent 5px 9px,
+      var(--rink,#111) 9px 12px, transparent 12px 14px,
+      var(--rink,#111) 14px 15px, transparent 15px 17px,
+      var(--rink,#111) 17px 21px, transparent 21px 24px);
+  }
+  .receipt .code{text-align:center;letter-spacing:.35em;font-size:10px}
+  .receipt .thanks{text-align:center;font-weight:700;margin-top:14px;letter-spacing:.25em;font-size:12px}
+  .receipt .thanks small{display:block;letter-spacing:.05em;font-weight:400;margin-top:3px;font-size:10px}
+  .receipt .usedmark{
+    text-align:center;font-weight:900;letter-spacing:.3em;margin-top:10px;
+    border:2px dashed currentColor;padding:5px;font-size:12px;
+  }
+
+  /* theme picker */
+  .themes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
+  .sw{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);cursor:pointer;position:relative}
+  .sw.on{border-color:var(--ink);box-shadow:0 0 0 2px #fff inset}
+  .customcolors{display:flex;gap:10px;align-items:center;justify-content:center;font-size:11px;color:var(--sub)}
+  .customcolors input[type=color]{width:34px;height:34px;border:2px solid var(--line);border-radius:50%;padding:0;background:none;cursor:pointer}
+  .customcolors input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  .customcolors input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+
+  /* image preview modal */
+  .imgprev{width:100%;text-align:center}
+  .imgprev img{max-width:80%;max-height:52vh;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  .imgprev p{font-size:12.5px;color:var(--sub);margin:12px 0 4px;line-height:1.6}
+
+  #toast{
+    position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(10px);
+    background:var(--ink);color:#fff;font-size:13px;font-weight:600;
+    padding:11px 20px;border-radius:99px;opacity:0;pointer-events:none;transition:.25s;z-index:99;white-space:nowrap;
+  }
+  #toast.on{opacity:1;transform:translateX(-50%)}
+  .float{
+    position:fixed;left:50%;top:38%;transform:translateX(-50%);
+    font-size:44px;font-weight:900;color:var(--green);z-index:98;pointer-events:none;
+    animation:floatup 1s ease forwards;
+  }
+  @keyframes floatup{
+    0%{opacity:0;transform:translateX(-50%) translateY(10px) scale(.7)}
+    25%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.1)}
+    100%{opacity:0;transform:translateX(-50%) translateY(-50px) scale(1)}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="appTitle">티끌상점</h1>
+  <span class="hint mono" id="todayHint"></span>
+</header>
+
+<nav>
+  <button class="on" data-tab="earn">적립</button>
+  <button data-tab="shop">상점</button>
+  <button data-tab="wallet">내 교환권</button>
+  <button data-tab="log">기록</button>
+  <button data-tab="set">설정</button>
+</nav>
+
+<main>
+  <!-- 적립 -->
+  <section id="tab-earn" class="on">
+    <div class="ticket">
+      <div class="balance">
+        <div class="date mono" id="balDate"></div>
+        <div class="icon" id="balIcon">🍀</div>
+        <div class="num" id="balNum">0</div>
+        <div class="label">POINTS COLLECTED</div>
+        <div id="streakBox"></div>
+        <div id="eventBox"></div>
+      </div>
+      <div class="punch"><div class="dashline"></div></div>
+      <div class="earnzone">
+        <label for="deed">오늘 무엇을 지켰나요?</label>
+        <textarea id="deed" placeholder="예) 아침 다짐 지키기 완료, 물 8잔 마시기 성공"></textarea>
+        <div class="autosave" id="draftHint"></div>
+        <button class="bigbtn" id="earnBtn">적립하기 +1</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 상점 -->
+  <section id="tab-shop">
+    <div id="voucherList"></div>
+    <button class="bigbtn ghost" id="addVoucherBtn" style="border-radius:var(--radius)">+ 교환권 만들기</button>
+  </section>
+
+  <!-- 내 교환권(지갑) -->
+  <section id="tab-wallet">
+    <div id="walletList"></div>
+  </section>
+
+  <!-- 기록 -->
+  <section id="tab-log">
+    <div class="ticket"><div class="log" id="logList"></div></div>
+  </section>
+
+  <!-- 설정 -->
+  <section id="tab-set">
+    <div class="ticket">
+      <div class="setrow">
+        <h3>앱 이름</h3>
+        <input type="text" class="txtinput" id="appNameInput" placeholder="예: 티끌상점" maxlength="14">
+      </div>
+      <div class="setrow">
+        <h3>적립 아이콘</h3>
+        <div class="iconpick" id="iconPick">
+          <button data-i="🍀">🍀</button>
+          <button data-i="⭐">⭐</button>
+          <button data-i="❤️">❤️</button>
+        </div>
+      </div>
+      <div class="setrow">
+        <h3>더블 적립 요일 <span>(x2)</span></h3>
+        <div class="days" id="dayPick"></div>
+      </div>
+      <div class="setrow">
+        <h3>더블 적립 날짜</h3>
+        <div class="daterow">
+          <input type="date" class="txtinput" id="evDate" style="flex:1">
+          <button class="smallbtn" id="evAdd">추가</button>
+        </div>
+        <div id="evList"></div>
+      </div>
+      <div class="setrow">
+        <h3>영수증 이름 <span>(상단 큰 글씨)</span></h3>
+        <input type="text" class="txtinput" id="rcptName" placeholder="예: MINJI, 나의 상점">
+      </div>
+      <div class="setrow" style="text-align:center">
+        <button class="smallbtn danger" id="resetBtn">모든 데이터 초기화</button>
+        <p style="font-size:10.5px;color:var(--sub);margin-top:10px">모든 변경사항은 이 기기에 자동 저장됩니다.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 교환권 만들기/수정 -->
+<div class="modal" id="voucherModal">
+  <div class="sheet">
+    <h2 id="vTitle">새 교환권</h2>
+    <input type="text" class="txtinput" id="vName" placeholder="교환권 이름 (예: 아이스크림 1개)" maxlength="30">
+    <input type="number" class="txtinput" id="vCost" placeholder="필요 포인트 수" min="1" inputmode="numeric">
+    <input type="text" class="txtinput" id="vEmoji" placeholder="이모지 (선택, 예: 🍦)" maxlength="4">
+    <div class="sheetbtns">
+      <button class="bigbtn ghost" data-close>취소</button>
+      <button class="bigbtn" id="vSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 적립 내역 수정 -->
+<div class="modal" id="earnEditModal">
+  <div class="sheet">
+    <h2>적립 내용 수정</h2>
+    <textarea id="earnEditText"></textarea>
+    <div class="sheetbtns">
+      <button class="bigbtn ghost" data-close>취소</button>
+      <button class="bigbtn" id="earnEditSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 영수증 -->
+<div class="modal" id="rcptModal">
+  <div class="sheet">
+    <div class="rcptwrap">
+      <div class="receipt" id="receipt"></div>
+      <div class="themes" id="themeRow"></div>
+      <div class="customcolors">
+        <span>커스텀</span>
+        <input type="color" id="cBg" title="배경색">
+        <input type="color" id="cInk" title="글자색">
+      </div>
+      <div class="sheetbtns" style="width:100%">
+        <button class="bigbtn ghost" data-close>닫기</button>
+        <button class="bigbtn" id="rcptSave" style="background:var(--pink);color:#1A1A1A">이미지 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 이미지 저장 프리뷰 -->
+<div class="modal" id="imgModal">
+  <div class="sheet imgprev">
+    <img id="imgOut" alt="영수증 이미지">
+    <p id="imgHint">이미지를 <b>길게 눌러</b> "사진에 저장"을 선택하세요.</p>
+    <div class="sheetbtns">
+      <button class="bigbtn ghost" data-close>닫기</button>
+      <button class="bigbtn" id="imgShare">공유 / 저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
+const KEY='tikkle.v2';
+let mem=null;
+function defaults(){return{
+  appName:'티끌상점', icon:'🍀', rcptName:'',
+  earns:[], vouchers:[], wallet:[],
+  evDays:[], evDates:[], draft:'',
+  rcptTheme:{bg:'#F6BBD1',ink:'#1A1A1A'}
+}}
+function load(){
+  try{
+    const r=localStorage.getItem(KEY);
+    if(r)return Object.assign(defaults(),JSON.parse(r));
+    // v1 마이그레이션
+    const old=localStorage.getItem('mystamps.v1');
+    if(old){
+      const o=JSON.parse(old),d=defaults();
+      d.icon=o.icon||'🍀';d.rcptName=o.rcptName||'';
+      d.earns=o.earns||[];d.vouchers=(o.vouchers||[]).map(v=>({id:uid(),...v}));
+      d.wallet=(o.spends||[]).map(s=>({...s,used:false,usedTs:null}));
+      d.evDays=o.evDays||[];d.evDates=o.evDates||[];
+      return d;
+    }
+  }catch(e){}
+  return mem||defaults();
+}
+function save(){mem=S;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+let S=load();
+// 구버전 데이터 정규화 (usedBy → usedAmt)
+S.earns.forEach(e=>{
+  if(typeof e.usedAmt!=='number')e.usedAmt=e.usedBy?e.amt:0;
+});
+save();
+
+/* ═══ helpers ═══ */
+const $=q=>document.querySelector(q);
+const DAYS=['일','월','화','수','목','금','토'];
+const pad=n=>String(n).padStart(2,'0');
+function todayStr(d=new Date()){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function fmt(ts){const d=new Date(ts);return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
+function isEventToday(){const d=new Date();return S.evDays.includes(d.getDay())||S.evDates.includes(todayStr(d))}
+function balance(){
+  // 잔액 = 아직 교환에 쓰이지 않은 적립의 합 (교환권을 지워도 쓴 포인트는 돌아오지 않음)
+  return S.earns.reduce((a,x)=>a+x.amt-(x.usedAmt||0),0);
+}
+function streak(){
+  const dates=new Set(S.earns.map(x=>todayStr(new Date(x.ts))));
+  let n=0,d=new Date();
+  if(!dates.has(todayStr(d)))d.setDate(d.getDate()-1);
+  while(dates.has(todayStr(d))){n++;d.setDate(d.getDate()-1)}
+  return n;
+}
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.classList.add('on');
+  clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2000);
+}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ═══ SVG icons ═══ */
+const IC={
+  up:'<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>',
+  down:'<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>',
+  edit:'<svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  receipt:'<svg viewBox="0 0 24 24"><path d="M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5 2 1.5V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5 4 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/></svg>'
+};
+
+/* ═══ tabs ═══ */
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('section').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');$('#tab-'+b.dataset.tab).classList.add('on');render();
+  };
+});
+
+/* ═══ render ═══ */
+function render(){
+  const d=new Date();
+  document.title=S.appName;
+  $('#appTitle').textContent=S.appName;
+  $('#todayHint').textContent=todayStr(d);
+  $('#balDate').textContent=`${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${DAYS[d.getDay()]}요일`;
+  $('#balIcon').textContent=S.icon;
+  $('#balNum').textContent=balance();
+  const st=streak();
+  $('#streakBox').innerHTML=st>0?`<div class="streak">🔥 ${st}일 연속 적립 중</div>`:'';
+  const ev=isEventToday();
+  $('#eventBox').innerHTML=ev?`<div><span class="eventbadge">EVENT · 오늘은 더블 적립 x2</span></div>`:'';
+  $('#earnBtn').textContent=ev?'적립하기 +2':'적립하기 +1';
+  renderVouchers();renderWallet();renderLog();renderSettings();
+}
+
+/* ── 상점 (템플릿: 수정/삭제/순서변경) ── */
+function renderVouchers(){
+  const bal=balance(),box=$('#voucherList');
+  if(!S.vouchers.length){
+    box.innerHTML=`<div class="ticket"><div class="empty">아직 교환권이 없어요.<br>포인트로 바꿀 나만의 보상을 만들어보세요 🎁</div></div>`;
+    return;
+  }
+  box.innerHTML=S.vouchers.map((v,i)=>`
+    <div class="ticket">
+      <div class="voucher">
+        <div class="left">${esc(v.emoji||'🎁')}</div>
+        <div class="sep"></div>
+        <div class="body">
+          <div class="name">${esc(v.name)}</div>
+          <div class="cost"><b>${v.cost}</b> ${S.icon} 필요</div>
+          <div class="tools">
+            <button class="tbtn" onclick="moveVoucher(${i},-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
+            <button class="tbtn" onclick="moveVoucher(${i},1)" ${i===S.vouchers.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
+            <button class="tbtn" onclick="editVoucher(${i})" aria-label="수정">${IC.edit}</button>
+            <button class="tbtn" onclick="delVoucher(${i})" aria-label="삭제">${IC.trash}</button>
+          </div>
+        </div>
+        <div class="act">
+          <button class="smallbtn fill" onclick="exchange(${i})" ${bal<v.cost?'disabled':''}>교환</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+window.moveVoucher=(i,dir)=>{
+  const j=i+dir;if(j<0||j>=S.vouchers.length)return;
+  [S.vouchers[i],S.vouchers[j]]=[S.vouchers[j],S.vouchers[i]];
+  save();render();
+};
+let editIdx=null;
+$('#addVoucherBtn').onclick=()=>{
+  editIdx=null;$('#vTitle').textContent='새 교환권';
+  $('#vName').value='';$('#vCost').value='';$('#vEmoji').value='';
+  $('#voucherModal').classList.add('on');
+};
+window.editVoucher=i=>{
+  editIdx=i;const v=S.vouchers[i];
+  $('#vTitle').textContent='교환권 수정';
+  $('#vName').value=v.name;$('#vCost').value=v.cost;$('#vEmoji').value=v.emoji||'';
+  $('#voucherModal').classList.add('on');
+};
+$('#vSave').onclick=()=>{
+  const name=$('#vName').value.trim(),cost=parseInt($('#vCost').value,10),emoji=$('#vEmoji').value.trim();
+  if(!name||!cost||cost<1){toast('이름과 필요 포인트를 입력해주세요');return}
+  if(editIdx===null)S.vouchers.push({id:uid(),name,cost,emoji});
+  else Object.assign(S.vouchers[editIdx],{name,cost,emoji});
+  save();$('#voucherModal').classList.remove('on');render();
+  toast(editIdx===null?'교환권을 만들었어요':'수정했어요');
+};
+window.delVoucher=i=>{
+  if(confirm('이 교환권을 삭제할까요?\n(이미 교환한 내 교환권은 그대로 남아요)')){
+    S.vouchers.splice(i,1);save();render();
+  }
+};
+
+/* ── 교환: FIFO로 오래된 적립부터 차감 → 지갑에 추가 ── */
+window.exchange=i=>{
+  const v=S.vouchers[i];
+  if(balance()<v.cost)return;
+  if(!confirm(`${S.icon} ${v.cost}개로 "${v.name}"을(를) 교환할까요?`))return;
+  const wid=uid();let need=v.cost;const usedItems=[];
+  for(const e of S.earns){
+    if(need<=0)break;
+    const remain=e.amt-(e.usedAmt||0);
+    if(remain<=0)continue;
+    const take=Math.min(need,remain);
+    e.usedAmt=(e.usedAmt||0)+take;need-=take;
+    usedItems.push({what:e.what,amt:take,ts:e.ts});
+  }
+  const w={id:wid,name:v.name,emoji:v.emoji,cost:v.cost,ts:Date.now(),
+    items:usedItems,used:false,usedTs:null};
+  S.wallet.push(w);save();render();
+  showReceipt(w);
+  toast('교환 완료! 내 교환권에 담겼어요 🎫');
+};
+
+/* ── 지갑: 사용완료 처리/되돌리기/영수증/삭제 ── */
+function renderWallet(){
+  const box=$('#walletList');
+  if(!S.wallet.length){
+    box.innerHTML=`<div class="ticket"><div class="empty">교환한 교환권이 여기에 모여요.<br>상점에서 포인트로 교환해보세요 🎫</div></div>`;
+    return;
+  }
+  const list=[...S.wallet].sort((a,b)=>(a.used-b.used)||(b.ts-a.ts));
+  box.innerHTML=list.map(w=>`
+    <div class="ticket ${w.used?'usedcard':''}" style="position:relative">
+      ${w.used?'<div class="usedstamp">사용완료</div>':''}
+      <div class="voucher">
+        <div class="left">${esc(w.emoji||'🎫')}</div>
+        <div class="sep"></div>
+        <div class="body">
+          <div class="name">${esc(w.name)}</div>
+          <div class="subline mono">교환 ${fmt(w.ts)}</div>
+          ${w.used?`<div class="subline mono">사용 ${fmt(w.usedTs)}</div>`:''}
+          <div class="tools">
+            <button class="tbtn" onclick="openReceipt('${w.id}')" aria-label="영수증">${IC.receipt}</button>
+            <button class="tbtn" onclick="delWallet('${w.id}')" aria-label="삭제">${IC.trash}</button>
+          </div>
+        </div>
+        <div class="act">
+          ${w.used
+            ?`<button class="smallbtn" onclick="toggleUse('${w.id}')">되돌리기</button>`
+            :`<button class="smallbtn fill" onclick="toggleUse('${w.id}')">사용하기</button>`}
+        </div>
+      </div>
+    </div>`).join('');
+}
+window.toggleUse=id=>{
+  const w=S.wallet.find(x=>x.id===id);if(!w)return;
+  if(!w.used){
+    if(!confirm(`"${w.name}"을(를) 사용 처리할까요?`))return;
+    w.used=true;w.usedTs=Date.now();toast('맛있게, 즐겁게 사용하세요! ✅');
+  }else{
+    w.used=false;w.usedTs=null;toast('사용 전으로 되돌렸어요');
+  }
+  save();render();
+};
+window.delWallet=id=>{
+  if(!confirm('이 교환권을 삭제할까요?\n사용된 포인트는 돌아오지 않아요.'))return;
+  S.wallet=S.wallet.filter(x=>x.id!==id);save();render();
+};
+
+/* ── 기록: 적립 내역 수정/삭제 가능 ── */
+function renderLog(){
+  const box=$('#logList');
+  const all=[
+    ...S.earns.map(x=>({...x,type:'e'})),
+    ...S.wallet.map(x=>({...x,type:'w'})),
+    ...S.wallet.filter(x=>x.used).map(x=>({...x,type:'u',ts:x.usedTs}))
+  ].sort((a,b)=>b.ts-a.ts);
+  if(!all.length){box.innerHTML=`<div class="empty">아직 기록이 없어요.<br>첫 적립을 해보세요!</div>`;return}
+  box.innerHTML=all.map(x=>{
+    if(x.type==='e'){
+      const ua=x.usedAmt||0;
+      const full=ua>=x.amt, part=ua>0&&!full;
+      return`
+      <div class="logitem ${full?'usedrow':''}">
+        <div style="flex:1;min-width:0">
+          <div class="what">${esc(x.what)}${full?'<span class="tag">사용됨</span>':''}${part?'<span class="tag">일부 사용</span>':''}${x.x2?'<span class="tag x2">x2</span>':''}</div>
+          <div class="when mono">${fmt(x.ts)}</div>
+        </div>
+        <div class="tools">
+          <button class="tbtn" onclick="editEarn('${x.id}')" aria-label="수정">${IC.edit}</button>
+          <button class="tbtn" onclick="delEarn('${x.id}')" ${ua>0?'disabled':''} aria-label="삭제">${IC.trash}</button>
+        </div>
+        <div class="amt plus">+${x.amt}</div>
+      </div>`;
+    }
+    if(x.type==='w')return`
+      <div class="logitem">
+        <div style="flex:1;min-width:0">
+          <div class="what">🎫 ${esc(x.name)} 교환</div>
+          <div class="when mono">${fmt(x.ts)}</div>
+        </div>
+        <div class="amt minus">−${x.cost}</div>
+      </div>`;
+    return`
+      <div class="logitem">
+        <div style="flex:1;min-width:0">
+          <div class="what">✅ ${esc(x.name)} 사용완료</div>
+          <div class="when mono">${fmt(x.ts)}</div>
+        </div>
+        <div class="amt" style="color:var(--sub)">·</div>
+      </div>`;
+  }).join('');
+}
+let earnEditId=null;
+window.editEarn=id=>{
+  const e=S.earns.find(x=>x.id===id);if(!e)return;
+  earnEditId=id;$('#earnEditText').value=e.what;
+  $('#earnEditModal').classList.add('on');
+};
+$('#earnEditSave').onclick=()=>{
+  const e=S.earns.find(x=>x.id===earnEditId);
+  const v=$('#earnEditText').value.trim();
+  if(!v){toast('내용을 입력해주세요');return}
+  if(e){e.what=v;save();render();toast('수정했어요')}
+  $('#earnEditModal').classList.remove('on');
+};
+window.delEarn=id=>{
+  const e=S.earns.find(x=>x.id===id);if(!e)return;
+  if((e.usedAmt||0)>0){toast('이미 교환에 사용된 적립은 삭제할 수 없어요');return}
+  if(!confirm('이 적립 기록을 삭제할까요? (포인트도 함께 사라져요)'))return;
+  S.earns=S.earns.filter(x=>x.id!==id);save();render();
+};
+
+/* ── 적립 (작성 중 초안 자동저장) ── */
+const deedEl=$('#deed');
+deedEl.value=S.draft||'';
+deedEl.addEventListener('input',()=>{
+  S.draft=deedEl.value;save();
+  const h=$('#draftHint');h.textContent='자동 저장됨 ✓';
+  clearTimeout(h._x);h._x=setTimeout(()=>h.textContent='',1500);
+});
+$('#earnBtn').onclick=()=>{
+  const what=deedEl.value.trim();
+  if(!what){toast('무엇을 했는지 적어주세요 ✏️');deedEl.focus();return}
+  const ev=isEventToday();
+  S.earns.push({id:uid(),what,amt:ev?2:1,x2:ev,ts:Date.now(),usedAmt:0});
+  S.draft='';deedEl.value='';save();
+  const f=document.createElement('div');
+  f.className='float';f.textContent=(ev?'+2 ':'+1 ')+S.icon;
+  document.body.appendChild(f);setTimeout(()=>f.remove(),1000);
+  toast(ev?'더블 적립! +2 완료 🎉':'+1 적립 완료!');
+  render();
+};
+
+/* ── 영수증 (테마 커스텀) ── */
+const THEMES=[
+  {bg:'#F6BBD1',ink:'#1A1A1A'},
+  {bg:'#BFE8D2',ink:'#14351F'},
+  {bg:'#F7E39B',ink:'#3A2E10'},
+  {bg:'#CFE0F5',ink:'#152A44'},
+  {bg:'#D7C8F0',ink:'#241A3A'},
+  {bg:'#FDFDFB',ink:'#1A1A1A'},
+  {bg:'#1B1B19',ink:'#F5F0E8'}
+];
+let currentRcpt=null;
+function applyTheme(){
+  const r=$('#receipt');
+  r.style.setProperty('--rbg',S.rcptTheme.bg);
+  r.style.setProperty('--rink',S.rcptTheme.ink);
+  $('#cBg').value=S.rcptTheme.bg;
+  $('#cInk').value=S.rcptTheme.ink;
+  $('#themeRow').innerHTML=THEMES.map((t,i)=>
+    `<button class="sw ${t.bg===S.rcptTheme.bg&&t.ink===S.rcptTheme.ink?'on':''}"
+      style="background:${t.bg};border-color:${t.bg===S.rcptTheme.bg?'var(--ink)':'var(--line)'}"
+      onclick="setTheme(${i})" aria-label="테마 ${i+1}"></button>`).join('');
+}
+window.setTheme=i=>{S.rcptTheme={...THEMES[i]};save();applyTheme()};
+$('#cBg').oninput=e=>{S.rcptTheme.bg=e.target.value;save();applyTheme()};
+$('#cInk').oninput=e=>{S.rcptTheme.ink=e.target.value;save();applyTheme()};
+
+window.openReceipt=id=>{
+  const w=S.wallet.find(x=>x.id===id);
+  if(w)showReceipt(w);
+};
+function showReceipt(w){
+  currentRcpt=w;
+  const d=new Date(w.ts);
+  const title=(S.rcptName||w.name).toUpperCase();
+  const items=w.items.map((it,idx)=>`
+    <div class="item">
+      <span class="nm">${esc(it.what)}${it.amt>1?' (x2)':''}</span>
+      <span class="dots">···················</span>
+      <span class="no">${pad(idx+1)}</span>
+    </div>`).join('');
+  const code=(w.id+'0000000000000').replace(/[^0-9]/g,'').slice(0,13).padEnd(13,'7');
+  $('#receipt').innerHTML=`
+    <div style="text-align:center;font-weight:700">@${esc(S.appName.toUpperCase())}</div>
+    <div class="brand">${esc(title)}</div>
+    <div class="stars">****** EXCHANGE RECEIPT ******</div>
+    <div class="row"><span>Date:</span><span class="v">${todayStr(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}</span></div>
+    <div class="row"><span>Item:</span><span class="v">${esc(w.emoji||'')} ${esc(w.name)}</span></div>
+    <div class="row"><span>Paid:</span><span class="v">${S.icon} × ${w.cost}</span></div>
+    <div class="stars">**********************************************</div>
+    <div style="font-weight:700;margin-top:6px">이 교환권을 만든 노력들 :</div>
+    <div class="items">${items}</div>
+    <div class="total"><span>TOTAL</span><span>${S.icon} ${w.cost}</span></div>
+    <div class="barcode"></div>
+    <div class="code">${code}</div>
+    ${w.used?`<div class="usedmark">사용완료 · USED</div>`:''}
+    <div class="thanks">THANK YOU<small>HAVE A NICE DAY · 잘했어요!</small></div>`;
+  applyTheme();
+  $('#rcptModal').classList.add('on');
+}
+
+/* ── 이미지 저장: 모바일 대응 (공유시트 → 미리보기 길게 누르기 → 다운로드) ── */
+let lastDataUrl=null,lastBlob=null;
+$('#rcptSave').onclick=async()=>{
+  const el=$('#receipt');
+  try{
+    const canvas=await html2canvas(el,{scale:3,backgroundColor:S.rcptTheme.bg,useCORS:true});
+    lastDataUrl=canvas.toDataURL('image/png');
+    lastBlob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+    $('#imgOut').src=lastDataUrl;
+    $('#rcptModal').classList.remove('on');
+    $('#imgModal').classList.add('on');
+  }catch(e){
+    toast('이미지 생성에 실패했어요. 스크린샷을 이용해주세요');
+  }
+};
+$('#imgShare').onclick=async()=>{
+  const fname='receipt-'+todayStr()+'.png';
+  // 1) 모바일: 네이티브 공유 시트 (사진에 저장 선택 가능)
+  if(lastBlob&&navigator.canShare){
+    const file=new File([lastBlob],fname,{type:'image/png'});
+    if(navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file]});return}
+      catch(e){if(e.name==='AbortError')return}
+    }
+  }
+  // 2) 데스크톱/미지원: 다운로드
+  if(lastDataUrl){
+    const a=document.createElement('a');
+    a.download=fname;a.href=lastDataUrl;
+    document.body.appendChild(a);a.click();a.remove();
+    toast('다운로드했어요 🧾');
+  }
+};
+
+/* ── 설정 ── */
+function renderSettings(){
+  document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===S.icon));
+  $('#dayPick').innerHTML=DAYS.map((d,i)=>`<button class="${S.evDays.includes(i)?'on':''}" onclick="togDay(${i})">${d}</button>`).join('');
+  $('#evList').innerHTML=S.evDates.map((d,i)=>`<span class="chip mono">${d}<button onclick="delDate(${i})">×</button></span>`).join('');
+  if(document.activeElement!==$('#rcptName'))$('#rcptName').value=S.rcptName;
+  if(document.activeElement!==$('#appNameInput'))$('#appNameInput').value=S.appName;
+}
+$('#appNameInput').addEventListener('input',e=>{
+  S.appName=e.target.value.trim()||'티끌상점';save();
+  document.title=S.appName;$('#appTitle').textContent=S.appName;
+});
+document.querySelectorAll('#iconPick button').forEach(b=>{
+  b.onclick=()=>{S.icon=b.dataset.i;save();render()};
+});
+window.togDay=i=>{
+  const p=S.evDays.indexOf(i);
+  p>=0?S.evDays.splice(p,1):S.evDays.push(i);
+  save();render();
+};
+$('#evAdd').onclick=()=>{
+  const d=$('#evDate').value;
+  if(!d){toast('날짜를 선택해주세요');return}
+  if(!S.evDates.includes(d))S.evDates.push(d);
+  $('#evDate').value='';save();render();
+};
+window.delDate=i=>{S.evDates.splice(i,1);save();render()};
+$('#rcptName').addEventListener('input',e=>{S.rcptName=e.target.value.trim();save()});
+$('#resetBtn').onclick=()=>{
+  if(confirm('정말 모든 데이터를 지울까요? 되돌릴 수 없어요.')){
+    S=defaults();save();render();toast('초기화 완료');
+  }
+};
+
+/* ── modal close ── */
+document.querySelectorAll('[data-close]').forEach(b=>{
+  b.onclick=()=>b.closest('.modal').classList.remove('on');
+});
+document.querySelectorAll('.modal').forEach(m=>{
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('on')});
+});
+
+render();
+</script>
+</body>
+</html>
