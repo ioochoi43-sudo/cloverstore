@@ -102,13 +102,13 @@
   .todorow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
   .todorow:last-of-type{border-bottom:0}
   .todorow .txt{flex:1;font-size:14px;font-weight:600;word-break:break-all;min-width:0}
-  .todorow .tbtn{width:26px;height:28px}
+  .todorow .tbtn{width:23px;height:26px}
   .todorow.done .txt{text-decoration:line-through;color:var(--sub)}
   .todocheck{
-    width:24px;height:24px;border:2px solid #D5D5CF;border-radius:8px;background:#FAFAF8;
+    width:22px;height:22px;border:2px solid #D5D5CF;border-radius:7px;background:#FAFAF8;
     flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
   }
-  .todocheck svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+  .todocheck svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;opacity:0}
   .todocheck.done{background:var(--green);border-color:var(--green)}
   .todocheck.done svg{opacity:1}
 
@@ -130,6 +130,36 @@
     border-radius:99px;min-width:17px;padding:1px 4px;line-height:1.35;
   }
   .calday .evdot{position:absolute;top:4px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--pink)}
+  .calday{cursor:pointer;padding-bottom:7px}
+  .calday.sel{outline:1.5px solid var(--green);background:rgba(46,125,79,.14)}
+  .calbar{position:absolute;bottom:4px;left:6px;right:6px;height:3px;border-radius:2px;background:#DEDED8;overflow:hidden}
+  .calbar i{display:block;height:100%;background:var(--green);border-radius:2px}
+  .caldetail{
+    margin-top:12px;padding:11px 12px;background:#FAFAF8;border-radius:12px;
+    font-size:12.5px;color:var(--ink);line-height:1.6;
+  }
+  .caldetail .d{font-size:11px;color:var(--sub)}
+  .caldetail ul{margin:6px 0 0;padding-left:16px}
+  .caldetail li{font-size:12px;margin:2px 0}
+  .caldetail li.miss{color:var(--sub);text-decoration:line-through}
+
+  /* 이월 배너 */
+  .carrybox{
+    background:#FAF6EC;border:1.5px solid #EADFC4;border-radius:14px;
+    padding:12px 14px;margin-bottom:12px;
+  }
+  .carrybox .h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .carrybox .h b{font-size:12.5px;font-weight:800;color:#8A6D2F}
+  .carrybox .h button{border:0;background:none;font:inherit;font-size:11.5px;color:var(--sub);cursor:pointer;text-decoration:underline}
+  .crow{display:flex;align-items:center;gap:6px;padding:6px 0}
+  .crow .txt{flex:1;font-size:13.5px;font-weight:600;word-break:break-all;min-width:0}
+  .crow .dt{font-size:10px;color:var(--sub);flex-shrink:0}
+  .cbtn{
+    border:1.5px solid #C9AE72;background:none;border-radius:99px;color:#8A6D2F;
+    font:inherit;font-size:11.5px;font-weight:700;padding:5px 11px;cursor:pointer;flex-shrink:0;
+  }
+  .cbtn.x{border-color:var(--line);color:var(--sub)}
+  .carried{font-size:9.5px;color:#8A6D2F;background:#F4EAD4;border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:1px;white-space:nowrap}
 
   .bigbtn{
     width:100%;margin-top:12px;border:0;border-radius:14px;
@@ -344,6 +374,7 @@
         <div class="todohead">
           <h3>오늘의 목록</h3>
         </div>
+        <div id="carryBox"></div>
         <div id="todoList"></div>
         <div class="daterow" style="margin-top:10px">
           <input type="text" class="txtinput" id="todoInput" placeholder="오늘 지킬 다짐 추가" maxlength="40" style="flex:1">
@@ -374,6 +405,7 @@
           <button class="tbtn" id="calNext" aria-label="다음 달"></button>
         </div>
         <div class="calgrid" id="calGrid"></div>
+        <div id="calDetail"></div>
       </div>
     </div>
     <div class="ticket"><div class="log" id="logList"></div></div>
@@ -1004,8 +1036,44 @@ $('#resetBtn').onclick=()=>{
 };
 
 /* ── 오늘의 목록: 체크하면 적립, 해제하면 적립 취소(미사용시) ── */
-function todayTodos(){return S.todos.filter(t=>t.date===todayStr())}
+function todayTodos(){return S.todos.filter(t=>t.date===todayStr()&&!t.dismissed)}
+function pendingTodos(){return S.todos.filter(t=>t.date<todayStr()&&!t.done&&!t.dismissed)}
+
+/* 지난 항목: 이월하거나 그냥 흘려보내기 (패널티 없음) */
+function renderCarry(){
+  const p=pendingTodos(),box=$('#carryBox');
+  if(!p.length){box.innerHTML='';return}
+  box.innerHTML=`
+    <div class="carrybox">
+      <div class="h">
+        <b>지난 항목 ${p.length}개</b>
+        <button onclick="dropAll()">모두 지우기</button>
+      </div>
+      ${p.map(t=>`
+        <div class="crow">
+          <span class="dt mono">${t.date.slice(5).replace('-','/')}</span>
+          <span class="txt">${esc(t.text)}</span>
+          <button class="cbtn" onclick="carryTodo('${t.id}')">오늘로</button>
+          <button class="cbtn x" onclick="dropTodo('${t.id}')">지우기</button>
+        </div>`).join('')}
+    </div>`;
+}
+window.carryTodo=id=>{
+  const t=S.todos.find(x=>x.id===id);if(!t)return;
+  t.date=todayStr();t.carried=true;save();render();
+  toast('오늘 목록으로 가져왔어요');
+};
+window.dropTodo=id=>{
+  const t=S.todos.find(x=>x.id===id);if(!t)return;
+  t.dismissed=true;save();render();
+};
+window.dropAll=()=>{
+  if(!confirm('지난 항목들을 모두 지울까요?\n기록에는 남지 않고 그대로 흘려보내요.'))return;
+  pendingTodos().forEach(t=>t.dismissed=true);
+  save();render();
+};
 function renderTodos(){
+  renderCarry();
   const list=todayTodos(),box=$('#todoList');
   if(!list.length){
     box.innerHTML=`<div class="empty" style="padding:18px 6px">오늘 지킬 것들을 미리 적어두고<br>지킬 때마다 체크해보세요 ✓</div>`;
@@ -1014,7 +1082,7 @@ function renderTodos(){
   box.innerHTML=list.map((t,i)=>`
     <div class="todorow ${t.done?'done':''}">
       <button class="todocheck ${t.done?'done':''}" onclick="togTodo('${t.id}')" aria-label="체크">${IC.check}</button>
-      <span class="txt">${esc(t.text)}</span>
+      <span class="txt">${esc(t.text)}${t.carried?'<span class="carried">이월</span>':''}</span>
       <button class="tbtn" onclick="copyTodo('${t.id}')" aria-label="복사">${IC.copy}</button>
       <button class="tbtn" onclick="moveTodo('${t.id}',-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
       <button class="tbtn" onclick="moveTodo('${t.id}',1)" ${i===list.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
@@ -1088,15 +1156,15 @@ window.copyTodo=id=>{
 };
 
 /* ── 월간 캘린더: 날짜별 적립 포인트 합계 표시 ── */
-let calY=new Date().getFullYear(),calM=new Date().getMonth();
+let calY=new Date().getFullYear(),calM=new Date().getMonth(),selDay=null;
+function dayStats(key){
+  const pts=S.earns.filter(e=>todayStr(new Date(e.ts))===key).reduce((a,e)=>a+e.amt,0);
+  const td=S.todos.filter(t=>t.date===key&&!t.dismissed);
+  return{pts,total:td.length,done:td.filter(t=>t.done).length,todos:td};
+}
 function renderCal(){
   $('#calPrev').innerHTML=IC.left;$('#calNext').innerHTML=IC.right;
   $('#calTitle').textContent=`${calY}.${pad(calM+1)}`;
-  const counts={};
-  S.earns.forEach(e=>{
-    const k=todayStr(new Date(e.ts));
-    counts[k]=(counts[k]||0)+e.amt;
-  });
   const first=new Date(calY,calM,1);
   const last=new Date(calY,calM+1,0).getDate();
   const today=todayStr();
@@ -1104,17 +1172,34 @@ function renderCal(){
   for(let i=0;i<first.getDay();i++)html+=`<div class="calday blank"></div>`;
   for(let d=1;d<=last;d++){
     const key=`${calY}-${pad(calM+1)}-${pad(d)}`;
-    const c=counts[key]||0;
+    const s=dayStats(key);
     const isEv=S.evDates.includes(key)||S.evDays.includes(new Date(calY,calM,d).getDay());
-    html+=`<div class="calday ${c?'has':''} ${key===today?'today':''}">
+    const rate=s.total?Math.round(s.done/s.total*100):0;
+    html+=`<div class="calday ${s.pts?'has':''} ${key===today?'today':''} ${key===selDay?'sel':''}" onclick="pickDay('${key}')">
       ${isEv?'<span class="evdot"></span>':''}
-      <span>${d}</span>${c?`<span class="cnt">${c}</span>`:''}
+      <span>${d}</span>${s.pts?`<span class="cnt">${s.pts}</span>`:''}
+      ${s.total?`<span class="calbar"><i style="width:${rate}%"></i></span>`:''}
     </div>`;
   }
   $('#calGrid').innerHTML=html;
+  renderCalDetail();
 }
-$('#calPrev').onclick=()=>{calM--;if(calM<0){calM=11;calY--}renderCal()};
-$('#calNext').onclick=()=>{calM++;if(calM>11){calM=0;calY++}renderCal()};
+window.pickDay=key=>{selDay=selDay===key?null:key;renderCal()};
+function renderCalDetail(){
+  const box=$('#calDetail');
+  if(!selDay){box.innerHTML='';return}
+  const s=dayStats(selDay);
+  const [y,m,dd]=selDay.split('-');
+  box.innerHTML=`
+    <div class="caldetail">
+      <div class="d mono">${y}.${m}.${dd}</div>
+      <div>${S.icon} 적립 <b>${s.pts}</b>${s.total?` · 목록 <b>${s.done}/${s.total}</b> 달성`:''}</div>
+      ${s.total?`<ul>${s.todos.map(t=>`<li class="${t.done?'':'miss'}">${esc(t.text)}</li>`).join('')}</ul>`:''}
+      ${!s.pts&&!s.total?`<div class="d" style="margin-top:4px">기록이 없는 날이에요</div>`:''}
+    </div>`;
+}
+$('#calPrev').onclick=()=>{calM--;if(calM<0){calM=11;calY--}selDay=null;renderCal()};
+$('#calNext').onclick=()=>{calM++;if(calM>11){calM=0;calY++}selDay=null;renderCal()};
 
 /* ── 데이터 백업: 내보내기(공유/다운로드) & 불러오기 ── */
 $('#expBtn').onclick=async()=>{
