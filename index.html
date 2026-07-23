@@ -25,16 +25,16 @@
   }
   .mono{font-family:"SF Mono","Menlo","Consolas","Courier New",monospace;letter-spacing:0}
 
-  header{padding:28px 22px 0}
+  header{padding:26px 22px 0}
   header .toprow{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
   header h1{
     font-family:Georgia,"Times New Roman","Apple Myungjo","Nanum Myeongjo",serif;
-    font-size:30px;font-weight:700;letter-spacing:-0.01em;line-height:1.1;
+    font-size:16px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;
   }
-  header .hint{font-size:11px;color:var(--sub);padding-bottom:4px}
+  header .hint{font-size:11px;color:var(--sub);padding-bottom:2px}
 
   nav{
-    display:flex;gap:6px;padding:18px 14px 6px;
+    display:flex;gap:6px;padding:24px 14px 10px;
     position:sticky;top:0;background:var(--bg);z-index:5;overflow-x:auto;
   }
   nav::-webkit-scrollbar{display:none}
@@ -102,6 +102,7 @@
   .todorow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
   .todorow:last-of-type{border-bottom:0}
   .todorow .txt{flex:1;font-size:14px;font-weight:600;word-break:break-all;min-width:0}
+  .todorow .tbtn{width:26px;height:28px}
   .todorow.done .txt{text-decoration:line-through;color:var(--sub)}
   .todocheck{
     width:24px;height:24px;border:2px solid #D5D5CF;border-radius:8px;background:#FAFAF8;
@@ -161,10 +162,10 @@
   .tools{display:flex;gap:2px}
   .tbtn{
     border:0;background:none;color:var(--sub);cursor:pointer;
-    width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
     border-radius:8px;line-height:1;font-family:inherit;padding:0;
   }
-  .tbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .tbtn svg{width:12.5px;height:12.5px;stroke:currentColor;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
   .tbtn:disabled{opacity:.25}
   .tbtn:active{background:var(--line)}
   .empty{text-align:center;color:var(--sub);font-size:13px;padding:44px 20px;line-height:1.7}
@@ -342,7 +343,6 @@
       <div class="todobox">
         <div class="todohead">
           <h3>오늘의 목록</h3>
-          <button class="tbtn" id="copyTodos" aria-label="전체 복사" title="전체 복사"></button>
         </div>
         <div id="todoList"></div>
         <div class="daterow" style="margin-top:10px">
@@ -1006,7 +1006,6 @@ $('#resetBtn').onclick=()=>{
 /* ── 오늘의 목록: 체크하면 적립, 해제하면 적립 취소(미사용시) ── */
 function todayTodos(){return S.todos.filter(t=>t.date===todayStr())}
 function renderTodos(){
-  $('#copyTodos').innerHTML=IC.copy;
   const list=todayTodos(),box=$('#todoList');
   if(!list.length){
     box.innerHTML=`<div class="empty" style="padding:18px 6px">오늘 지킬 것들을 미리 적어두고<br>지킬 때마다 체크해보세요 ✓</div>`;
@@ -1016,6 +1015,7 @@ function renderTodos(){
     <div class="todorow ${t.done?'done':''}">
       <button class="todocheck ${t.done?'done':''}" onclick="togTodo('${t.id}')" aria-label="체크">${IC.check}</button>
       <span class="txt">${esc(t.text)}</span>
+      <button class="tbtn" onclick="copyTodo('${t.id}')" aria-label="복사">${IC.copy}</button>
       <button class="tbtn" onclick="moveTodo('${t.id}',-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
       <button class="tbtn" onclick="moveTodo('${t.id}',1)" ${i===list.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
       <button class="tbtn" onclick="editTodo('${t.id}')" aria-label="수정">${IC.edit}</button>
@@ -1068,24 +1068,23 @@ window.delTodo=id=>{
   if(!confirm('이 항목을 삭제할까요?'))return;
   S.todos=S.todos.filter(x=>x.id!==id);save();render();
 };
-/* 전체 복사: "7/23 today's… 할일1 할일2" 한 줄 형식 */
-$('#copyTodos').onclick=async()=>{
-  const list=todayTodos();
-  if(!list.length){toast('오늘의 목록이 비어있어요');return}
-  const d=new Date();
-  const txt=`${d.getMonth()+1}/${d.getDate()} today's… `
-    +list.map(t=>t.text).join(' ');
+/* 개별 복사: 항목 내용만 한 줄로 복사 */
+async function copyText(txt){
   try{
     await navigator.clipboard.writeText(txt);
-    toast('전체 복사 완료! 📋');
+    toast('복사 완료! 📋');
   }catch(e){
     const ta=document.createElement('textarea');
     ta.value=txt;ta.style.position='fixed';ta.style.opacity='0';
     document.body.appendChild(ta);ta.focus();ta.select();
-    try{document.execCommand('copy');toast('전체 복사 완료! 📋')}
+    try{document.execCommand('copy');toast('복사 완료! 📋')}
     catch(_){toast('복사에 실패했어요')}
     ta.remove();
   }
+}
+window.copyTodo=id=>{
+  const t=S.todos.find(x=>x.id===id);if(!t)return;
+  copyText(t.text);
 };
 
 /* ── 월간 캘린더: 날짜별 적립 포인트 합계 표시 ── */
