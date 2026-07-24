@@ -83,7 +83,7 @@
   }
   textarea:focus{border-color:var(--ink)}
   .autosave{font-size:10.5px;color:var(--sub);margin-top:6px;text-align:right;height:14px}
-  .pchips{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 12px}
+  .pchips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 10px}
   .pchip{
     border:1.5px solid var(--line);background:#FAFAF8;border-radius:99px;
     font:inherit;font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;color:var(--ink);
@@ -362,8 +362,7 @@
       <div class="punch"><div class="dashline"></div></div>
       <div class="earnzone">
         <label for="deed">오늘 무엇을 지켰나요?</label>
-        <div class="pchips" id="presetChips"></div>
-        <textarea id="deed" placeholder="직접 적거나 위에서 골라보세요"></textarea>
+        <textarea id="deed" placeholder="직접 적고 바로 적립하기"></textarea>
         <div class="autosave" id="draftHint"></div>
         <button class="bigbtn" id="earnBtn">적립하기 +1</button>
       </div>
@@ -376,7 +375,8 @@
         </div>
         <div id="carryBox"></div>
         <div id="todoList"></div>
-        <div class="daterow" style="margin-top:10px">
+        <div class="pchips" id="presetChips"></div>
+        <div class="daterow" style="margin-top:2px">
           <input type="text" class="txtinput" id="todoInput" placeholder="오늘 지킬 다짐 추가" maxlength="40" style="flex:1">
           <button class="smallbtn" id="todoAdd">추가</button>
         </div>
@@ -642,7 +642,9 @@ function renderPresetChips(){
 }
 window.usePreset=i=>{
   const p=S.presets[i];if(!p)return;
-  deedEl.value=p.text;S.draft=p.text;save();
+  if(todayTodos().some(t=>t.text===p.text)){toast('이미 오늘 목록에 있어요');return}
+  S.todos.push({id:uid(),date:todayStr(),text:p.text,done:false,earnId:null});
+  save();render();toast('오늘의 목록에 추가했어요 ✓');
 };
 let pEditIdx=null;
 window.openPresets=()=>{
