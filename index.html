@@ -200,6 +200,27 @@
   .tbtn:active{background:var(--line)}
   .empty{text-align:center;color:var(--sub);font-size:13px;padding:44px 20px;line-height:1.7}
 
+  /* 예산 */
+  .budgetbox{padding:16px 20px 18px}
+  .budgethead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .budgethead h3{font-size:13px;font-weight:700}
+  .budgethead button{border:0;background:none;font:inherit;font-size:11.5px;color:var(--sub);cursor:pointer;text-decoration:underline}
+  .brow{padding:9px 0;border-bottom:1px solid var(--line)}
+  .brow:last-child{border-bottom:0}
+  .brow .t{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+  .brow .nm{font-size:13.5px;font-weight:700}
+  .brow .amt{font-size:11.5px;color:var(--sub)}
+  .brow .amt b{color:var(--ink);font-size:13px;font-weight:800}
+  .bbar{height:6px;border-radius:99px;background:#E8E8E2;overflow:hidden}
+  .bbar i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .3s}
+  .bbar.over i{background:var(--red)}
+  .brow.done .nm{color:var(--sub)}
+  .bmanage{display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .bmanage:last-of-type{border-bottom:0}
+  .bmanage .txt{flex:1;font-size:13.5px;font-weight:600;min-width:0;word-break:break-all}
+  .bmanage .mo{font-size:11.5px;color:var(--sub);flex-shrink:0}
+  select.txtinput{appearance:none;-webkit-appearance:none;background-image:none}
+
   /* used stamp */
   .usedcard .body,.usedcard .left{opacity:.4}
   .usedstamp{
@@ -386,6 +407,15 @@
 
   <!-- 상점 -->
   <section id="tab-shop">
+    <div class="ticket" id="budgetCard">
+      <div class="budgetbox">
+        <div class="budgethead">
+          <h3>이번 달 예산</h3>
+          <button onclick="openBudgets()">예산 관리</button>
+        </div>
+        <div id="budgetList"></div>
+      </div>
+    </div>
     <div id="voucherList"></div>
     <button class="bigbtn ghost" id="addVoucherBtn" style="border-radius:var(--radius)">+ 교환권 만들기</button>
   </section>
@@ -453,7 +483,11 @@
       </div>
       <div class="setrow" style="text-align:center">
         <button class="smallbtn danger" id="resetBtn">모든 데이터 초기화</button>
-        <p style="font-size:10.5px;color:var(--sub);margin-top:10px">모든 변경사항은 이 기기에 자동 저장됩니다.</p>
+        <p style="font-size:10.5px;color:var(--sub);margin-top:12px;line-height:1.8">
+          모든 변경사항은 이 기기에 자동 저장됩니다.<br>
+          <span id="savedAt"></span><br>
+          <span class="mono" id="verLine"></span>
+        </p>
       </div>
     </div>
   </section>
@@ -463,12 +497,32 @@
 <div class="modal" id="voucherModal">
   <div class="sheet">
     <h2 id="vTitle">새 교환권</h2>
-    <input type="text" class="txtinput" id="vName" placeholder="교환권 이름 (예: 아이스크림 1개)" maxlength="30">
+    <input type="text" class="txtinput" id="vName" placeholder="교환권 이름 (예: 배달 1만원권)" maxlength="30">
     <input type="number" class="txtinput" id="vCost" placeholder="필요 포인트 수" min="1" inputmode="numeric">
-    <input type="text" class="txtinput" id="vEmoji" placeholder="이모지 (선택, 예: 🍦)" maxlength="4">
+    <input type="text" class="txtinput" id="vEmoji" placeholder="이모지 (선택, 예: 🍕)" maxlength="4">
+    <input type="number" class="txtinput" id="vAmount" placeholder="금액 (선택, 예: 10000)" min="0" inputmode="numeric">
+    <select class="txtinput" id="vBudget"></select>
+    <p style="font-size:10.5px;color:var(--sub);margin:2px 0 6px;line-height:1.6">금액과 예산을 지정하면, 포인트가 있어도 이번 달 예산이 남아있어야 교환할 수 있어요.</p>
     <div class="sheetbtns">
       <button class="bigbtn ghost" data-close>취소</button>
       <button class="bigbtn" id="vSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 예산 관리 -->
+<div class="modal" id="budgetModal">
+  <div class="sheet">
+    <h2>예산 관리</h2>
+    <input type="text" class="txtinput" id="bName" placeholder="예산 이름 (예: 배달, 쇼핑)" maxlength="20">
+    <div class="daterow">
+      <input type="number" class="txtinput" id="bAmt" placeholder="월 예산 (원)" min="0" inputmode="numeric" style="flex:1">
+      <button class="smallbtn" id="bAdd">추가</button>
+    </div>
+    <div class="plist" id="bList"></div>
+    <p style="font-size:10.5px;color:var(--sub);line-height:1.6">예산은 매달 1일에 자동으로 다시 채워져요.</p>
+    <div class="sheetbtns">
+      <button class="bigbtn ghost" data-close>닫기</button>
     </div>
   </div>
 </div>
@@ -535,11 +589,12 @@
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
+const APP_VERSION='1.3.1';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
   appName:'클로버상점', icon:'🍀', rcptName:'',
-  earns:[], vouchers:[], wallet:[], presets:[], todos:[],
+  earns:[], vouchers:[], wallet:[], presets:[], todos:[], budgets:[],
   evDays:[], evDates:[], draft:'',
   rcptTheme:{bg:'#F6BBD1',ink:'#1A1A1A'}
 }}
@@ -560,7 +615,18 @@ function load(){
   }catch(e){}
   return mem||defaults();
 }
-function save(){mem=S;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function save(){
+  S.savedAt=Date.now();
+  mem=S;
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+  const el=document.getElementById('savedAt');
+  if(el)el.textContent=`마지막 저장 ${fmtFull(S.savedAt)}`;
+}
+function fmtFull(ts){
+  const d=new Date(ts);
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 let S=load();
 // 구버전 데이터 정규화 (usedBy → usedAmt, 이전 앱명 갱신)
@@ -568,11 +634,15 @@ S.earns.forEach(e=>{
   if(typeof e.usedAmt!=='number')e.usedAmt=e.usedBy?e.amt:0;
 });
 if(S.appName==='티끌상점')S.appName='클로버상점';
+const prevVer=S.version||null;
+S.version=APP_VERSION;
 save();
 
 /* ═══ helpers ═══ */
 const $=q=>document.querySelector(q);
 const DAYS=['일','월','화','수','목','금','토'];
+const CAL_DAYS=['월','화','수','목','금','토','일'];
+const WEEK_ORDER=[1,2,3,4,5,6,0];
 const pad=n=>String(n).padStart(2,'0');
 function todayStr(d=new Date()){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function fmt(ts){const d=new Date(ts);return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -593,6 +663,17 @@ function toast(msg){
   clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2000);
 }
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function won(n){return Number(n||0).toLocaleString('ko-KR')}
+function monthKey(ts=Date.now()){const d=new Date(ts);return d.getFullYear()+'-'+pad(d.getMonth()+1)}
+function budgetUsed(bid,ym=monthKey()){
+  return S.wallet.filter(w=>w.budgetId===bid&&monthKey(w.ts)===ym)
+                 .reduce((a,w)=>a+(w.amount||0),0);
+}
+function budgetLeft(bid){
+  const b=S.budgets.find(x=>x.id===bid);
+  if(!b)return Infinity;
+  return b.monthly-budgetUsed(bid);
+}
 
 /* ═══ SVG icons ═══ */
 const IC={
@@ -630,7 +711,7 @@ function render(){
   const ev=isEventToday();
   $('#eventBox').innerHTML=ev?`<div><span class="eventbadge">EVENT · 오늘은 더블 적립 x2</span></div>`:'';
   $('#earnBtn').textContent=ev?'적립하기 +2':'적립하기 +1';
-  renderPresetChips();renderTodos();renderVouchers();renderWallet();renderLog();renderCal();renderSettings();
+  renderPresetChips();renderTodos();renderBudgets();renderVouchers();renderWallet();renderLog();renderCal();renderSettings();
 }
 
 /* ── 다짐 리스트: 칩 탭 → 입력창에 채우기, 관리에서 추가/수정/삭제/순서변경 ── */
@@ -691,6 +772,74 @@ window.delPreset=i=>{
   S.presets.splice(i,1);save();renderPList();renderPresetChips();
 };
 
+/* ── 예산: 매달 자동 리셋 (현재 달 사용액 기준 계산) ── */
+function renderBudgets(){
+  const box=$('#budgetList');
+  $('#budgetCard').style.display=S.budgets.length?'':'none';
+  if(!S.budgets.length){box.innerHTML='';return}
+  box.innerHTML=S.budgets.map(b=>{
+    const used=budgetUsed(b.id),left=b.monthly-used;
+    const rate=b.monthly>0?Math.min(100,Math.round(used/b.monthly*100)):0;
+    return`
+    <div class="brow ${left<=0?'done':''}">
+      <div class="t">
+        <span class="nm">${esc(b.name)}</span>
+        <span class="amt"><b>${won(Math.max(0,left))}</b>원 남음 · ${won(used)}/${won(b.monthly)}</span>
+      </div>
+      <div class="bbar ${left<0?'over':''}"><i style="width:${rate}%"></i></div>
+    </div>`;
+  }).join('');
+}
+window.openBudgets=()=>{
+  bEditId=null;$('#bName').value='';$('#bAmt').value='';$('#bAdd').textContent='추가';
+  renderBList();$('#budgetModal').classList.add('on');
+};
+let bEditId=null;
+function renderBList(){
+  const box=$('#bList');
+  if(!S.budgets.length){
+    box.innerHTML=`<div class="empty" style="padding:20px 10px">배달, 쇼핑처럼 돈이 드는<br>보상의 월 한도를 정해보세요</div>`;
+    return;
+  }
+  box.innerHTML=S.budgets.map((b,i)=>`
+    <div class="bmanage">
+      <span class="txt">${esc(b.name)}</span>
+      <span class="mo mono">${won(b.monthly)}원/월</span>
+      <button class="tbtn" onclick="moveBudget(${i},-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
+      <button class="tbtn" onclick="moveBudget(${i},1)" ${i===S.budgets.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
+      <button class="tbtn" onclick="editBudget('${b.id}')" aria-label="수정">${IC.edit}</button>
+      <button class="tbtn" onclick="delBudget('${b.id}')" aria-label="삭제">${IC.trash}</button>
+    </div>`).join('');
+}
+$('#bAdd').onclick=()=>{
+  const name=$('#bName').value.trim(),amt=parseInt($('#bAmt').value,10);
+  if(!name||isNaN(amt)||amt<0){toast('이름과 월 예산을 입력해주세요');return}
+  if(bEditId){
+    const b=S.budgets.find(x=>x.id===bEditId);
+    if(b)Object.assign(b,{name,monthly:amt});
+    bEditId=null;$('#bAdd').textContent='추가';
+  }else S.budgets.push({id:uid(),name,monthly:amt});
+  $('#bName').value='';$('#bAmt').value='';
+  save();renderBList();render();
+};
+window.moveBudget=(i,dir)=>{
+  const j=i+dir;if(j<0||j>=S.budgets.length)return;
+  [S.budgets[i],S.budgets[j]]=[S.budgets[j],S.budgets[i]];
+  save();renderBList();render();
+};
+window.editBudget=id=>{
+  const b=S.budgets.find(x=>x.id===id);if(!b)return;
+  bEditId=id;$('#bName').value=b.name;$('#bAmt').value=b.monthly;
+  $('#bAdd').textContent='저장';$('#bName').focus();
+};
+window.delBudget=id=>{
+  if(!confirm('이 예산을 삭제할까요?\n연결된 교환권은 예산 제한 없이 바뀌어요.'))return;
+  S.budgets=S.budgets.filter(x=>x.id!==id);
+  S.vouchers.forEach(v=>{if(v.budgetId===id)v.budgetId=null});
+  if(bEditId===id){bEditId=null;$('#bName').value='';$('#bAmt').value='';$('#bAdd').textContent='추가'}
+  save();renderBList();render();
+};
+
 /* ── 상점 (템플릿: 수정/삭제/순서변경) ── */
 function renderVouchers(){
   const bal=balance(),box=$('#voucherList');
@@ -698,14 +847,18 @@ function renderVouchers(){
     box.innerHTML=`<div class="ticket"><div class="empty">아직 교환권이 없어요.<br>포인트로 바꿀 나만의 보상을 만들어보세요 🎁</div></div>`;
     return;
   }
-  box.innerHTML=S.vouchers.map((v,i)=>`
+  box.innerHTML=S.vouchers.map((v,i)=>{
+    const overBudget=v.budgetId&&v.amount>0&&budgetLeft(v.budgetId)<v.amount;
+    const bName=(S.budgets.find(b=>b.id===v.budgetId)||{}).name;
+    return`
     <div class="ticket">
       <div class="voucher">
         <div class="left">${esc(v.emoji||'🎁')}</div>
         <div class="sep"></div>
         <div class="body">
           <div class="name">${esc(v.name)}</div>
-          <div class="cost"><b>${v.cost}</b> ${S.icon} 필요</div>
+          <div class="cost"><b>${v.cost}</b> ${S.icon} 필요${v.amount>0?` · ${won(v.amount)}원`:''}</div>
+          ${bName?`<div class="subline">${esc(bName)} 예산 ${won(Math.max(0,budgetLeft(v.budgetId)))}원 남음${overBudget?' · 이번 달 소진':''}</div>`:''}
           <div class="tools">
             <button class="tbtn" onclick="moveVoucher(${i},-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
             <button class="tbtn" onclick="moveVoucher(${i},1)" ${i===S.vouchers.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
@@ -714,10 +867,10 @@ function renderVouchers(){
           </div>
         </div>
         <div class="act">
-          <button class="smallbtn fill" onclick="exchange(${i})" ${bal<v.cost?'disabled':''}>교환</button>
+          <button class="smallbtn fill" onclick="exchange(${i})" ${bal<v.cost||overBudget?'disabled':''}>교환</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`}).join('');
 }
 window.moveVoucher=(i,dir)=>{
   const j=i+dir;if(j<0||j>=S.vouchers.length)return;
@@ -725,22 +878,32 @@ window.moveVoucher=(i,dir)=>{
   save();render();
 };
 let editIdx=null;
+function fillBudgetSelect(sel){
+  $('#vBudget').innerHTML=`<option value="">예산 연결 안 함</option>`
+    +S.budgets.map(b=>`<option value="${b.id}" ${sel===b.id?'selected':''}>${esc(b.name)} 예산</option>`).join('');
+}
 $('#addVoucherBtn').onclick=()=>{
   editIdx=null;$('#vTitle').textContent='새 교환권';
-  $('#vName').value='';$('#vCost').value='';$('#vEmoji').value='';
+  $('#vName').value='';$('#vCost').value='';$('#vEmoji').value='';$('#vAmount').value='';
+  fillBudgetSelect('');
   $('#voucherModal').classList.add('on');
 };
 window.editVoucher=i=>{
   editIdx=i;const v=S.vouchers[i];
   $('#vTitle').textContent='교환권 수정';
   $('#vName').value=v.name;$('#vCost').value=v.cost;$('#vEmoji').value=v.emoji||'';
+  $('#vAmount').value=v.amount||'';
+  fillBudgetSelect(v.budgetId||'');
   $('#voucherModal').classList.add('on');
 };
 $('#vSave').onclick=()=>{
   const name=$('#vName').value.trim(),cost=parseInt($('#vCost').value,10),emoji=$('#vEmoji').value.trim();
+  const amount=parseInt($('#vAmount').value,10)||0,budgetId=$('#vBudget').value||null;
   if(!name||!cost||cost<1){toast('이름과 필요 포인트를 입력해주세요');return}
-  if(editIdx===null)S.vouchers.push({id:uid(),name,cost,emoji});
-  else Object.assign(S.vouchers[editIdx],{name,cost,emoji});
+  if(budgetId&&amount<=0){toast('예산을 연결하려면 금액을 입력해주세요');return}
+  const data={name,cost,emoji,amount,budgetId};
+  if(editIdx===null)S.vouchers.push({id:uid(),...data});
+  else Object.assign(S.vouchers[editIdx],data);
   save();$('#voucherModal').classList.remove('on');render();
   toast(editIdx===null?'교환권을 만들었어요':'수정했어요');
 };
@@ -754,7 +917,11 @@ window.delVoucher=i=>{
 window.exchange=i=>{
   const v=S.vouchers[i];
   if(balance()<v.cost)return;
-  if(!confirm(`${S.icon} ${v.cost}개로 "${v.name}"을(를) 교환할까요?`))return;
+  if(v.budgetId&&v.amount>0&&budgetLeft(v.budgetId)<v.amount){
+    toast('이번 달 예산이 부족해요');return;
+  }
+  const amtTxt=v.amount>0?` (${won(v.amount)}원)`:'';
+  if(!confirm(`${S.icon} ${v.cost}개로 "${v.name}"${amtTxt}을(를) 교환할까요?`))return;
   const wid=uid();let need=v.cost;const usedItems=[];
   for(const e of S.earns){
     if(need<=0)break;
@@ -764,7 +931,9 @@ window.exchange=i=>{
     e.usedAmt=(e.usedAmt||0)+take;need-=take;
     usedItems.push({what:e.what,amt:take,ts:e.ts});
   }
+  const b=S.budgets.find(x=>x.id===v.budgetId);
   const w={id:wid,name:v.name,emoji:v.emoji,cost:v.cost,ts:Date.now(),
+    amount:v.amount||0,budgetId:v.budgetId||null,budgetName:b?b.name:null,
     items:usedItems,used:false,usedTs:null};
   S.wallet.push(w);save();render();
   showReceipt(w);
@@ -786,7 +955,7 @@ function renderWallet(){
         <div class="left">${esc(w.emoji||'🎫')}</div>
         <div class="sep"></div>
         <div class="body">
-          <div class="name">${esc(w.name)}</div>
+          <div class="name">${esc(w.name)}${w.amount>0?` <span style="font-size:12px;color:var(--sub);font-weight:600">${won(w.amount)}원</span>`:''}</div>
           <div class="subline mono">교환 ${fmt(w.ts)}</div>
           ${w.used?`<div class="subline mono">사용 ${fmt(w.usedTs)}</div>`:''}
           <div class="tools">
@@ -888,8 +1057,9 @@ const deedEl=$('#deed');
 deedEl.value=S.draft||'';
 deedEl.addEventListener('input',()=>{
   S.draft=deedEl.value;save();
-  const h=$('#draftHint');h.textContent='자동 저장됨 ✓';
-  clearTimeout(h._x);h._x=setTimeout(()=>h.textContent='',1500);
+  const d=new Date(),p=n=>String(n).padStart(2,'0');
+  const h=$('#draftHint');h.textContent=`자동 저장됨 ✓ ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  clearTimeout(h._x);h._x=setTimeout(()=>h.textContent='',2500);
 });
 function addEarn(what){
   const ev=isEventToday();
@@ -951,11 +1121,12 @@ function showReceipt(w){
     </div>`).join('');
   const code=(w.id+'0000000000000').replace(/[^0-9]/g,'').slice(0,13).padEnd(13,'7');
   $('#receipt').innerHTML=`
-    <div style="text-align:center;font-weight:700">@${esc(S.appName.toUpperCase())}</div>
     <div class="brand">${esc(title)}</div>
     <div class="stars">****** EXCHANGE RECEIPT ******</div>
     <div class="row"><span>Date:</span><span class="v">${todayStr(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}</span></div>
     <div class="row"><span>Item:</span><span class="v">${esc(w.emoji||'')} ${esc(w.name)}</span></div>
+    ${w.amount>0?`<div class="row"><span>Price:</span><span class="v">${won(w.amount)}원</span></div>`:''}
+    ${w.budgetName?`<div class="row"><span>Budget:</span><span class="v">${esc(w.budgetName)} ${won(budgetUsed(w.budgetId,monthKey(w.ts)))}/${won((S.budgets.find(b=>b.id===w.budgetId)||{}).monthly||0)}원</span></div>`:''}
     <div class="row"><span>Paid:</span><span class="v">${S.icon} × ${w.cost}</span></div>
     <div class="stars">**********************************************</div>
     <div style="font-weight:700;margin-top:6px">이 교환권을 만든 노력들 :</div>
@@ -1005,8 +1176,11 @@ $('#imgShare').onclick=async()=>{
 
 /* ── 설정 ── */
 function renderSettings(){
+  $('#verLine').textContent=`클로버상점 v${APP_VERSION}`;
+  const el=$('#savedAt');
+  if(S.savedAt)el.textContent=`마지막 저장 ${fmtFull(S.savedAt)}`;
   document.querySelectorAll('#iconPick button').forEach(b=>b.classList.toggle('on',b.dataset.i===S.icon));
-  $('#dayPick').innerHTML=DAYS.map((d,i)=>`<button class="${S.evDays.includes(i)?'on':''}" onclick="togDay(${i})">${d}</button>`).join('');
+  $('#dayPick').innerHTML=WEEK_ORDER.map(i=>`<button class="${S.evDays.includes(i)?'on':''}" onclick="togDay(${i})">${DAYS[i]}</button>`).join('');
   $('#evList').innerHTML=S.evDates.map((d,i)=>`<span class="chip mono">${d}<button onclick="delDate(${i})">×</button></span>`).join('');
   if(document.activeElement!==$('#rcptName'))$('#rcptName').value=S.rcptName;
   if(document.activeElement!==$('#appNameInput'))$('#appNameInput').value=S.appName;
@@ -1170,8 +1344,8 @@ function renderCal(){
   const first=new Date(calY,calM,1);
   const last=new Date(calY,calM+1,0).getDate();
   const today=todayStr();
-  let html=DAYS.map(d=>`<div class="wd">${d}</div>`).join('');
-  for(let i=0;i<first.getDay();i++)html+=`<div class="calday blank"></div>`;
+  let html=CAL_DAYS.map(d=>`<div class="wd">${d}</div>`).join('');
+  for(let i=0;i<(first.getDay()+6)%7;i++)html+=`<div class="calday blank"></div>`;
   for(let d=1;d<=last;d++){
     const key=`${calY}-${pad(calM+1)}-${pad(d)}`;
     const s=dayStats(key);
@@ -1234,6 +1408,7 @@ $('#impFile').onchange=e=>{
       if(!Array.isArray(S.wallet))S.wallet=[];
       if(!Array.isArray(S.presets))S.presets=[];
       if(!Array.isArray(S.todos))S.todos=[];
+      if(!Array.isArray(S.budgets))S.budgets=[];
       S.rcptTheme=Object.assign({bg:'#F6BBD1',ink:'#1A1A1A'},S.rcptTheme||{});
       S.earns.forEach(x=>{if(typeof x.usedAmt!=='number')x.usedAmt=x.usedBy?x.amt:0});
       deedEl.value=S.draft||'';
@@ -1253,6 +1428,9 @@ document.querySelectorAll('.modal').forEach(m=>{
 });
 
 render();
+if(prevVer&&prevVer!==APP_VERSION){
+  setTimeout(()=>toast(`v${APP_VERSION}으로 업데이트되었어요 ✨`),500);
+}
 </script>
 </body>
 </html>
