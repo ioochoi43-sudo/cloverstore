@@ -302,14 +302,9 @@
   .receipt .item .no{font-weight:700;font-size:13px}
   .receipt .total{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-top:8px}
   .barcode{
-    height:52px;margin:14px 4px 4px;
-    background:repeating-linear-gradient(90deg,
-      var(--rink,#111) 0 2px, transparent 2px 4px,
-      var(--rink,#111) 4px 5px, transparent 5px 9px,
-      var(--rink,#111) 9px 12px, transparent 12px 14px,
-      var(--rink,#111) 14px 15px, transparent 15px 17px,
-      var(--rink,#111) 17px 21px, transparent 21px 24px);
+    height:52px;margin:14px 4px 4px;display:flex;align-items:stretch;
   }
+  .barcode span{display:block;height:100%;background:var(--rink,#111)}
   .receipt .code{text-align:center;letter-spacing:.35em;font-size:10px}
   .receipt .thanks{text-align:center;font-weight:700;margin-top:14px;letter-spacing:.25em;font-size:12px}
   .receipt .thanks small{display:block;letter-spacing:.05em;font-weight:400;margin-top:3px;font-size:10px}
@@ -589,7 +584,7 @@
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
-const APP_VERSION='1.3.2';
+const APP_VERSION='1.3.3';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
@@ -1124,6 +1119,15 @@ function showReceipt(w){
       <span class="no">${pad(idx+1)}</span>
     </div>`).join('');
   const code=(w.id+'0000000000000').replace(/[^0-9]/g,'').slice(0,13).padEnd(13,'7');
+  // 코드 숫자로 막대 폭 결정 (모든 브라우저/이미지 저장 호환)
+  let seed=0;for(const ch of (w.id+code))seed=(seed*31+ch.charCodeAt(0))>>>0;
+  const widths=[1,2,3];let bars='',flip=true,total=0;
+  for(let k=0;k<48;k++){
+    seed=(seed*1103515245+12345)>>>0;
+    const wpx=widths[seed%3]+1;
+    bars+=`<span style="width:${wpx}px;background:${flip?'var(--rink,#111)':'transparent'}"></span>`;
+    flip=!flip;total+=wpx;
+  }
   $('#receipt').innerHTML=`
     <div class="brand">${esc(title)}</div>
     <div class="stars">****** EXCHANGE RECEIPT ******</div>
@@ -1136,7 +1140,7 @@ function showReceipt(w){
     <div style="font-weight:700;margin-top:6px">이 교환권을 만든 노력들 :</div>
     <div class="items">${items}</div>
     <div class="total"><span>TOTAL</span><span>${S.icon} ${w.cost}</span></div>
-    <div class="barcode"></div>
+    <div class="barcode" style="justify-content:center">${bars}</div>
     <div class="code">${code}</div>
     ${w.used?`<div class="usedmark">사용완료 · USED</div>`:''}
     <div class="thanks">THANK YOU<small>HAVE A NICE DAY · 잘했어요!</small></div>`;
