@@ -304,6 +304,8 @@
   .receipt .colhead .nm{flex:1}
   .receipt .colhead .qty{width:38px;text-align:center;flex-shrink:0}
   .receipt .colhead .prc{width:52px;text-align:right;flex-shrink:0}
+  .receipt .item .x2m{font-size:9px;font-weight:800;border:1px solid currentColor;border-radius:3px;padding:0 3px;vertical-align:1px;opacity:.75}
+  .receipt .x2note{font-size:9.5px;opacity:.6;margin:6px 0 2px;text-align:right}
   .receipt .total{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-top:8px}
   .barcode{
     height:52px;margin:14px 4px 4px;display:flex;align-items:stretch;
@@ -588,7 +590,7 @@
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
-const APP_VERSION='1.4.0';
+const APP_VERSION='1.4.1';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
@@ -1119,15 +1121,18 @@ function showReceipt(w){
   // 같은 다짐끼리 묶기: QTY=횟수, PRICE=획득 클로버 합계
   const grouped={};const order=[];
   w.items.forEach(it=>{
-    if(!grouped[it.what]){grouped[it.what]={qty:0,pts:0};order.push(it.what)}
+    if(!grouped[it.what]){grouped[it.what]={qty:0,pts:0,hasX2:false};order.push(it.what)}
     grouped[it.what].qty+=1;
     grouped[it.what].pts+=it.amt;
+    if(it.amt>1)grouped[it.what].hasX2=true;
   });
+  let anyX2=false;
   const items=order.map(name=>{
     const g=grouped[name];
+    if(g.hasX2)anyX2=true;
     return`
     <div class="item">
-      <span class="nm">${esc(name)}</span>
+      <span class="nm">${esc(name)}${g.hasX2?' <b class="x2m">×2</b>':''}</span>
       <span class="qty">${g.qty}</span>
       <span class="prc">${g.pts}</span>
     </div>`;
@@ -1154,6 +1159,7 @@ function showReceipt(w){
     <div style="font-weight:700;margin-top:6px">이 교환권을 만든 노력들 :</div>
     <div class="colhead"><span class="nm">ITEM</span><span class="qty">QTY</span><span class="prc">PRICE</span></div>
     <div class="items">${items}</div>
+    ${anyX2?`<div class="x2note">×2 = 더블 적립 이벤트로 2배 획득</div>`:''}
     <div class="total"><span>TOTAL</span><span>${S.icon} ${w.cost}</span></div>
     <div class="barcode" style="justify-content:center">${bars}</div>
     <div class="code">${code}</div>
