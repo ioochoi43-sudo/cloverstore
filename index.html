@@ -589,7 +589,7 @@
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
-const APP_VERSION='1.3.1';
+const APP_VERSION='1.3.2';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
@@ -775,8 +775,12 @@ window.delPreset=i=>{
 /* ── 예산: 매달 자동 리셋 (현재 달 사용액 기준 계산) ── */
 function renderBudgets(){
   const box=$('#budgetList');
-  $('#budgetCard').style.display=S.budgets.length?'':'none';
-  if(!S.budgets.length){box.innerHTML='';return}
+  if(!S.budgets.length){
+    box.innerHTML=`<div style="font-size:12px;color:var(--sub);line-height:1.7;padding:2px 0 2px">
+      배달·쇼핑처럼 돈이 드는 보상은 월 한도를 정해두면<br>포인트가 넘쳐도 예산 안에서만 교환돼요.<br>
+      <b style="color:var(--ink)">예산 관리</b>에서 추가해보세요.</div>`;
+    return;
+  }
   box.innerHTML=S.budgets.map(b=>{
     const used=budgetUsed(b.id),left=b.monthly-used;
     const rate=b.monthly>0?Math.min(100,Math.round(used/b.monthly*100)):0;
