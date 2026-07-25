@@ -296,10 +296,14 @@
   .receipt .row{display:flex;justify-content:space-between;gap:10px}
   .receipt .row .v{text-align:right;word-break:break-all}
   .receipt .items{margin:10px 0}
-  .receipt .item{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin:5px 0}
-  .receipt .item .nm{flex:1;word-break:break-all}
-  .receipt .item .dots{flex-shrink:1;overflow:hidden;white-space:nowrap;opacity:.45;min-width:16px}
-  .receipt .item .no{font-weight:700;font-size:13px}
+  .receipt .colhead{display:flex;font-weight:700;font-size:10.5px;margin-bottom:2px}
+  .receipt .item{display:flex;align-items:baseline;margin:5px 0}
+  .receipt .item .nm{flex:1;word-break:break-all;padding-right:8px}
+  .receipt .item .qty{width:38px;text-align:center;flex-shrink:0}
+  .receipt .item .prc{width:52px;text-align:right;flex-shrink:0;font-weight:700}
+  .receipt .colhead .nm{flex:1}
+  .receipt .colhead .qty{width:38px;text-align:center;flex-shrink:0}
+  .receipt .colhead .prc{width:52px;text-align:right;flex-shrink:0}
   .receipt .total{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-top:8px}
   .barcode{
     height:52px;margin:14px 4px 4px;display:flex;align-items:stretch;
@@ -584,7 +588,7 @@
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
-const APP_VERSION='1.3.3';
+const APP_VERSION='1.4.0';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
@@ -1112,12 +1116,22 @@ function showReceipt(w){
   currentRcpt=w;
   const d=new Date(w.ts);
   const title=(S.rcptName||w.name).toUpperCase();
-  const items=w.items.map((it,idx)=>`
+  // 같은 다짐끼리 묶기: QTY=횟수, PRICE=획득 클로버 합계
+  const grouped={};const order=[];
+  w.items.forEach(it=>{
+    if(!grouped[it.what]){grouped[it.what]={qty:0,pts:0};order.push(it.what)}
+    grouped[it.what].qty+=1;
+    grouped[it.what].pts+=it.amt;
+  });
+  const items=order.map(name=>{
+    const g=grouped[name];
+    return`
     <div class="item">
-      <span class="nm">${esc(it.what)}${it.amt>1?' (x2)':''}</span>
-      <span class="dots">···················</span>
-      <span class="no">${pad(idx+1)}</span>
-    </div>`).join('');
+      <span class="nm">${esc(name)}</span>
+      <span class="qty">${g.qty}</span>
+      <span class="prc">${g.pts}</span>
+    </div>`;
+  }).join('');
   const code=(w.id+'0000000000000').replace(/[^0-9]/g,'').slice(0,13).padEnd(13,'7');
   // 코드 숫자로 막대 폭 결정 (모든 브라우저/이미지 저장 호환)
   let seed=0;for(const ch of (w.id+code))seed=(seed*31+ch.charCodeAt(0))>>>0;
@@ -1138,6 +1152,7 @@ function showReceipt(w){
     <div class="row"><span>Paid:</span><span class="v">${S.icon} × ${w.cost}</span></div>
     <div class="stars">**********************************************</div>
     <div style="font-weight:700;margin-top:6px">이 교환권을 만든 노력들 :</div>
+    <div class="colhead"><span class="nm">ITEM</span><span class="qty">QTY</span><span class="prc">PRICE</span></div>
     <div class="items">${items}</div>
     <div class="total"><span>TOTAL</span><span>${S.icon} ${w.cost}</span></div>
     <div class="barcode" style="justify-content:center">${bars}</div>
