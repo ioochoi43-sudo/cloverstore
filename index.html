@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#EDEDEA">
+<meta name="theme-color" content="#F7F7F5">
 <title>클로버상점</title>
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,8 +12,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
-    --bg:#EDEDEA; --ticket:#FDFDFB; --ink:#1B1B19; --sub:#9C9C96;
-    --line:#E3E3DE; --green:#2E7D4F; --pink:#F6BBD1; --red:#C4526A;
+    --bg:#F7F7F5; --ticket:#FFFFFF; --ink:#1B1B19; --sub:#9C9C96;
+    --line:#ECECE8; --green:#2E7D4F; --pink:#F6BBD1; --red:#C4526A;
     --radius:18px;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -39,7 +39,7 @@
   }
   nav::-webkit-scrollbar{display:none}
   nav button{
-    flex:1;border:0;background:#E7E7E2;
+    flex:1;border:0;background:#ECECE8;
     font:inherit;font-size:13.5px;font-weight:600;color:#ABABA5;
     padding:14px 16px;cursor:pointer;white-space:nowrap;
     border-radius:13px;flex-shrink:0;transition:background .15s,color .15s;
@@ -590,7 +590,7 @@
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
-const APP_VERSION='1.4.1';
+const APP_VERSION='1.4.2';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
