@@ -161,6 +161,18 @@
   .cbtn.x{border-color:var(--line);color:var(--sub)}
   .carried{font-size:9.5px;color:#8A6D2F;background:#F4EAD4;border-radius:4px;padding:1px 5px;margin-left:5px;vertical-align:1px;white-space:nowrap}
 
+  /* 대출 배너 */
+  .loanbox{
+    background:#EAF0F7;border:1.5px solid #C7D6E8;border-radius:14px;
+    padding:13px 15px;margin:14px 0 0;text-align:left;cursor:pointer;
+  }
+  .loanbox .h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .loanbox .h b{font-size:12.5px;font-weight:800;color:#2C4A6E}
+  .loanbox .h span{font-size:11px;color:#5C7A9E}
+  .lbar{height:6px;border-radius:99px;background:#D3E0EE;overflow:hidden;margin-top:8px}
+  .lbar i{display:block;height:100%;background:#3D5A80;border-radius:99px;transition:width .3s}
+  .loandetail{margin-top:10px;font-size:11.5px;color:#3D5A80;line-height:1.7}
+
   .bigbtn{
     width:100%;margin-top:12px;border:0;border-radius:14px;
     background:var(--ink);color:#fff;font:inherit;font-size:15.5px;font-weight:700;
@@ -188,6 +200,7 @@
     font:inherit;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;color:var(--ink);
   }
   .smallbtn.fill{background:var(--ink);color:#fff}
+  .smallbtn.loanbtn{background:#3D5A80;color:#fff;border-color:#3D5A80;white-space:nowrap}
   .smallbtn:disabled{opacity:.3}
   .tools{display:flex;gap:2px}
   .tbtn{
@@ -305,6 +318,7 @@
   .receipt .colhead .qty{width:38px;text-align:center;flex-shrink:0}
   .receipt .colhead .prc{width:52px;text-align:right;flex-shrink:0}
   .receipt .item .x2m{font-size:9px;font-weight:800;border:1px solid currentColor;border-radius:3px;padding:0 3px;vertical-align:1px;opacity:.75}
+  .receipt .item.loanrow{font-style:italic;opacity:.85}
   .receipt .x2note{font-size:9.5px;opacity:.6;margin:6px 0 2px;text-align:right}
   .receipt .total{display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-top:8px}
   .barcode{
@@ -380,6 +394,7 @@
         <div class="label">POINTS COLLECTED</div>
         <div id="streakBox"></div>
         <div id="eventBox"></div>
+        <div id="loanBox"></div>
       </div>
       <div class="punch"><div class="dashline"></div></div>
       <div class="earnzone">
@@ -472,6 +487,14 @@
       <div class="setrow">
         <h3>영수증 이름 <span>(상단 큰 글씨)</span></h3>
         <input type="text" class="txtinput" id="rcptName" placeholder="예: MINJI, 나의 상점">
+      </div>
+      <div class="setrow">
+        <h3>대출 설정 <span>(포인트 부족할 때 미리 당겨쓰기)</span></h3>
+        <div class="daterow">
+          <input type="number" class="txtinput" id="loanLimitInput" placeholder="대출 한도 (포인트)" min="0" inputmode="numeric" style="flex:1">
+          <input type="number" class="txtinput" id="loanRateInput" placeholder="이자율 %" min="0" max="200" inputmode="numeric" style="width:96px">
+        </div>
+        <p style="font-size:10.5px;color:var(--sub);margin-top:8px;line-height:1.6">부족한 포인트만큼 빌리고, 이자를 더해 앞으로 벌 적립에서 자동으로 먼저 갚아요. 동시에 하나의 대출만 진행할 수 있어요.</p>
       </div>
       <div class="setrow">
         <h3>데이터 백업 <span>(기기 변경·유실 대비)</span></h3>
@@ -586,18 +609,32 @@
   </div>
 </div>
 
+<!-- 대출 상세 -->
+<div class="modal" id="loanModal">
+  <div class="sheet">
+    <h2>대출 상세</h2>
+    <div id="loanDetailBox"></div>
+    <div class="sheetbtns">
+      <button class="bigbtn ghost" data-close>닫기</button>
+      <button class="bigbtn" id="loanCancelBtn" style="background:var(--red)">대출 취소</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
+
 
 <script>
 /* ═══ 저장: 모든 변경은 즉시 localStorage에 자동 저장 ═══ */
-const APP_VERSION='1.4.2';
+const APP_VERSION='1.5.1';
 const KEY='tikkle.v2';
 let mem=null;
 function defaults(){return{
   appName:'클로버상점', icon:'🍀', rcptName:'',
   earns:[], vouchers:[], wallet:[], presets:[], todos:[], budgets:[],
   evDays:[], evDates:[], draft:'',
-  rcptTheme:{bg:'#F6BBD1',ink:'#1A1A1A'}
+  rcptTheme:{bg:'#F6BBD1',ink:'#1A1A1A'},
+  loan:null, loanLimit:6, loanRate:0.2, loanHistory:[]
 }}
 function load(){
   try{
@@ -635,6 +672,10 @@ S.earns.forEach(e=>{
   if(typeof e.usedAmt!=='number')e.usedAmt=e.usedBy?e.amt:0;
 });
 if(S.appName==='티끌상점')S.appName='클로버상점';
+if(!Array.isArray(S.loanHistory))S.loanHistory=[];
+if(typeof S.loanLimit!=='number'||S.loanLimit<0)S.loanLimit=6;
+if(typeof S.loanRate!=='number'||S.loanRate<0)S.loanRate=0.2;
+if(S.loan&&(typeof S.loan.principal!=='number'||typeof S.loan.interest!=='number'))S.loan=null;
 const prevVer=S.version||null;
 S.version=APP_VERSION;
 save();
@@ -651,6 +692,59 @@ function isEventToday(){const d=new Date();return S.evDays.includes(d.getDay())|
 function balance(){
   // 잔액 = 아직 교환에 쓰이지 않은 적립의 합 (교환권을 지워도 쓴 포인트는 돌아오지 않음)
   return S.earns.reduce((a,x)=>a+x.amt-(x.usedAmt||0),0);
+}
+/* ── 대출: 오래된 적립부터 소진하는 공용 FIFO 함수 (교환/상환 공용) ── */
+function consumeFIFO(need){
+  const items=[];
+  for(const e of S.earns){
+    if(need<=0)break;
+    const remain=e.amt-(e.usedAmt||0);
+    if(remain<=0)continue;
+    const take=Math.min(need,remain);
+    e.usedAmt=(e.usedAmt||0)+take;need-=take;
+    items.push({what:e.what,amt:take,ts:e.ts,x2:!!e.x2});
+  }
+  return{items,leftover:need};
+}
+function loanOwed(){return S.loan?S.loan.principal+S.loan.interest:0}
+function loanRemain(){return S.loan?Math.max(0,loanOwed()-S.loan.repaid):0}
+window.openLoanDetail=()=>{
+  if(!S.loan)return;
+  const owed=loanOwed(),remain=loanRemain();
+  const log=(S.loan.repayLog||[]);
+  $('#loanDetailBox').innerHTML=`
+    <div class="caldetail">
+      <div class="d mono">${fmt(S.loan.takenAt)} 대출</div>
+      <div>"${esc(S.loan.name)}" 교환을 위해 <b>${S.loan.principal}${S.icon}</b> 대출</div>
+      <div>이자 <b>${S.loan.interest}${S.icon}</b> · 총 상환액 <b>${owed}${S.icon}</b></div>
+      <div>지금까지 상환 <b>${S.loan.repaid}${S.icon}</b> · 남음 <b>${remain}${S.icon}</b></div>
+      ${log.length?`<ul>${log.map(l=>`<li>${esc(l.what)} +${l.amt}</li>`).join('')}</ul>`:'<div class="d" style="margin-top:6px">아직 상환 내역이 없어요</div>'}
+    </div>`;
+  $('#loanModal').classList.add('on');
+};
+$('#loanCancelBtn').onclick=()=>{
+  if(!S.loan)return;
+  if(!confirm('대출을 취소할까요?\n이미 상환한 금액은 돌아오지 않고, 남은 빚만 사라져요.'))return;
+  S.loanHistory.push({...S.loan,settledAt:Date.now(),cancelled:true});
+  S.loan=null;save();render();
+  $('#loanModal').classList.remove('on');
+  toast('대출을 취소했어요');
+};
+/* 새로 적립될 때마다 대출이 있으면 우선 자동 상환 */
+function repayLoanFrom(){
+  if(!S.loan)return;
+  const need=loanRemain();
+  if(need<=0)return;
+  const{items,leftover}=consumeFIFO(need);
+  const repaid=need-leftover;
+  if(repaid<=0)return;
+  S.loan.repaid+=repaid;
+  S.loan.repayLog=(S.loan.repayLog||[]).concat(items);
+  if(loanRemain()<=0){
+    S.loanHistory.push({...S.loan,settledAt:Date.now()});
+    S.loan=null;
+    toast('대출을 모두 상환했어요! 🎉');
+  }
 }
 function streak(){
   const dates=new Set(S.earns.map(x=>todayStr(new Date(x.ts))));
@@ -712,7 +806,19 @@ function render(){
   const ev=isEventToday();
   $('#eventBox').innerHTML=ev?`<div><span class="eventbadge">EVENT · 오늘은 더블 적립 x2</span></div>`:'';
   $('#earnBtn').textContent=ev?'적립하기 +2':'적립하기 +1';
+  renderLoanBox();
   renderPresetChips();renderTodos();renderBudgets();renderVouchers();renderWallet();renderLog();renderCal();renderSettings();
+}
+function renderLoanBox(){
+  const box=$('#loanBox');
+  if(!S.loan){box.innerHTML='';return}
+  const owed=loanOwed(),remain=loanRemain(),rate=Math.round(S.loan.repaid/owed*100);
+  box.innerHTML=`
+    <div class="loanbox" onclick="openLoanDetail()">
+      <div class="h"><b>🏦 대출 상환 중</b><span>남은 빚 ${remain}${S.icon}</span></div>
+      <div class="lbar"><i style="width:${rate}%"></i></div>
+      <div class="loandetail">"${esc(S.loan.name)}" · 원금 ${S.loan.principal} + 이자 ${S.loan.interest} = ${owed}${S.icon}<br>다음 적립부터 자동으로 먼저 갚아요. 눌러서 자세히 보기</div>
+    </div>`;
 }
 
 /* ── 다짐 리스트: 칩 탭 → 입력창에 채우기, 관리에서 추가/수정/삭제/순서변경 ── */
@@ -855,6 +961,16 @@ function renderVouchers(){
   box.innerHTML=S.vouchers.map((v,i)=>{
     const overBudget=v.budgetId&&v.amount>0&&budgetLeft(v.budgetId)<v.amount;
     const bName=(S.budgets.find(b=>b.id===v.budgetId)||{}).name;
+    const shortfall=v.cost-bal;
+    const canLoan=shortfall>0&&!overBudget&&!S.loan&&shortfall<=S.loanLimit;
+    let actBtn;
+    if(bal>=v.cost){
+      actBtn=`<button class="smallbtn fill" onclick="exchange(${i})" ${overBudget?'disabled':''}>교환</button>`;
+    }else if(canLoan){
+      actBtn=`<button class="smallbtn loanbtn" onclick="exchangeLoan(${i})">🏦 대출로 교환</button>`;
+    }else{
+      actBtn=`<button class="smallbtn fill" disabled>교환</button>`;
+    }
     return`
     <div class="ticket">
       <div class="voucher">
@@ -864,6 +980,8 @@ function renderVouchers(){
           <div class="name">${esc(v.name)}</div>
           <div class="cost"><b>${v.cost}</b> ${S.icon} 필요${v.amount>0?` · ${won(v.amount)}원`:''}</div>
           ${bName?`<div class="subline">${esc(bName)} 예산 ${won(Math.max(0,budgetLeft(v.budgetId)))}원 남음${overBudget?' · 이번 달 소진':''}</div>`:''}
+          ${shortfall>0&&S.loan&&!overBudget?`<div class="subline">상환 중인 대출이 있어 대출 교환 불가</div>`:''}
+          ${shortfall>0&&!S.loan&&shortfall>S.loanLimit&&!overBudget?`<div class="subline">대출 한도(${S.loanLimit}${S.icon}) 초과</div>`:''}
           <div class="tools">
             <button class="tbtn" onclick="moveVoucher(${i},-1)" ${i===0?'disabled':''} aria-label="위로">${IC.up}</button>
             <button class="tbtn" onclick="moveVoucher(${i},1)" ${i===S.vouchers.length-1?'disabled':''} aria-label="아래로">${IC.down}</button>
@@ -872,7 +990,7 @@ function renderVouchers(){
           </div>
         </div>
         <div class="act">
-          <button class="smallbtn fill" onclick="exchange(${i})" ${bal<v.cost||overBudget?'disabled':''}>교환</button>
+          ${actBtn}
         </div>
       </div>
     </div>`}).join('');
@@ -927,23 +1045,39 @@ window.exchange=i=>{
   }
   const amtTxt=v.amount>0?` (${won(v.amount)}원)`:'';
   if(!confirm(`${S.icon} ${v.cost}개로 "${v.name}"${amtTxt}을(를) 교환할까요?`))return;
-  const wid=uid();let need=v.cost;const usedItems=[];
-  for(const e of S.earns){
-    if(need<=0)break;
-    const remain=e.amt-(e.usedAmt||0);
-    if(remain<=0)continue;
-    const take=Math.min(need,remain);
-    e.usedAmt=(e.usedAmt||0)+take;need-=take;
-    usedItems.push({what:e.what,amt:take,ts:e.ts});
+  const{items:usedItems}=consumeFIFO(v.cost);
+  finishExchange(v,usedItems,null);
+};
+/* ── 대출로 교환: 부족한 만큼 미래 적립을 담보로 당겨쓰기 (이자 포함 상환) ── */
+window.exchangeLoan=i=>{
+  const v=S.vouchers[i];
+  if(S.loan){toast('이미 상환 중인 대출이 있어요');return}
+  const shortfall=v.cost-balance();
+  if(shortfall<=0)return exchange(i);
+  if(shortfall>S.loanLimit){toast(`대출 한도(${S.loanLimit}${S.icon})를 초과해요`);return}
+  if(v.budgetId&&v.amount>0&&budgetLeft(v.budgetId)<v.amount){
+    toast('이번 달 예산이 부족해요');return;
   }
+  const interest=Math.ceil(shortfall*S.loanRate);
+  const owed=shortfall+interest;
+  const amtTxt=v.amount>0?` (${won(v.amount)}원)`:'';
+  if(!confirm(`포인트가 ${shortfall}${S.icon} 부족해요.\n대출로 채우면 이자 ${interest}${S.icon}가 붙어 앞으로 벌 적립에서 총 ${owed}${S.icon}가 자동으로 먼저 상환돼요.\n\n"${v.name}"${amtTxt}을(를) 대출로 교환할까요?`))return;
+  const{items:usedItems}=consumeFIFO(v.cost); // 있는 만큼 소진, 나머지는 대출로 충당
+  usedItems.push({what:'🏦 대출로 충당',amt:shortfall,ts:Date.now(),loan:true});
+  const loanId=uid();
+  S.loan={id:loanId,name:v.name,principal:shortfall,interest,repaid:0,repayLog:[],takenAt:Date.now()};
+  finishExchange(v,usedItems,loanId);
+};
+function finishExchange(v,usedItems,loanId){
+  const wid=uid();
   const b=S.budgets.find(x=>x.id===v.budgetId);
   const w={id:wid,name:v.name,emoji:v.emoji,cost:v.cost,ts:Date.now(),
     amount:v.amount||0,budgetId:v.budgetId||null,budgetName:b?b.name:null,
-    items:usedItems,used:false,usedTs:null};
+    items:usedItems,used:false,usedTs:null,loanId:loanId||null};
   S.wallet.push(w);save();render();
   showReceipt(w);
-  toast('교환 완료! 내 교환권에 담겼어요 🎫');
-};
+  toast(loanId?'대출로 교환 완료! 🏦':'교환 완료! 내 교환권에 담겼어요 🎫');
+}
 
 /* ── 지갑: 사용완료 처리/되돌리기/영수증/삭제 ── */
 function renderWallet(){
@@ -960,7 +1094,7 @@ function renderWallet(){
         <div class="left">${esc(w.emoji||'🎫')}</div>
         <div class="sep"></div>
         <div class="body">
-          <div class="name">${esc(w.name)}${w.amount>0?` <span style="font-size:12px;color:var(--sub);font-weight:600">${won(w.amount)}원</span>`:''}</div>
+          <div class="name">${esc(w.name)}${w.amount>0?` <span style="font-size:12px;color:var(--sub);font-weight:600">${won(w.amount)}원</span>`:''}${w.loanId?' <span class="carried" style="color:#2C4A6E;background:#E3EBF4">🏦 대출</span>':''}</div>
           <div class="subline mono">교환 ${fmt(w.ts)}</div>
           ${w.used?`<div class="subline mono">사용 ${fmt(w.usedTs)}</div>`:''}
           <div class="tools">
@@ -987,17 +1121,29 @@ window.toggleUse=id=>{
   save();render();
 };
 window.delWallet=id=>{
-  if(!confirm('이 교환권을 삭제할까요?\n사용된 포인트는 돌아오지 않아요.'))return;
+  const w=S.wallet.find(x=>x.id===id);
+  const linkedActiveLoan=w&&w.loanId&&S.loan&&S.loan.id===w.loanId;
+  const msg=linkedActiveLoan
+    ?'이 교환권을 삭제할까요?\n연결된 미상환 대출도 함께 취소돼요. (이미 상환한 금액은 돌아오지 않아요)'
+    :'이 교환권을 삭제할까요?\n사용된 포인트는 돌아오지 않아요.';
+  if(!confirm(msg))return;
+  if(linkedActiveLoan){
+    S.loanHistory.push({...S.loan,settledAt:Date.now(),cancelled:true});
+    S.loan=null;
+  }
   S.wallet=S.wallet.filter(x=>x.id!==id);save();render();
 };
 
 /* ── 기록: 적립 내역 수정/삭제 가능 ── */
 function renderLog(){
   const box=$('#logList');
+  const loanTaken=S.loan?[{...S.loan,type:'lt',ts:S.loan.takenAt}]:[];
+  const loanDone=S.loanHistory.map(l=>({...l,type:l.cancelled?'lc':'ld',ts:l.settledAt}));
   const all=[
     ...S.earns.map(x=>({...x,type:'e'})),
     ...S.wallet.map(x=>({...x,type:'w'})),
-    ...S.wallet.filter(x=>x.used).map(x=>({...x,type:'u',ts:x.usedTs}))
+    ...S.wallet.filter(x=>x.used).map(x=>({...x,type:'u',ts:x.usedTs})),
+    ...loanTaken,...loanDone
   ].sort((a,b)=>b.ts-a.ts);
   if(!all.length){box.innerHTML=`<div class="empty">아직 기록이 없어요.<br>첫 적립을 해보세요!</div>`;return}
   box.innerHTML=all.map(x=>{
@@ -1020,10 +1166,34 @@ function renderLog(){
     if(x.type==='w')return`
       <div class="logitem">
         <div style="flex:1;min-width:0">
-          <div class="what">🎫 ${esc(x.name)} 교환</div>
+          <div class="what">🎫 ${esc(x.name)} 교환${x.loanId?' <span class="tag" style="color:#2C4A6E;border-color:#C7D6E8">대출</span>':''}</div>
           <div class="when mono">${fmt(x.ts)}</div>
         </div>
         <div class="amt minus">−${x.cost}</div>
+      </div>`;
+    if(x.type==='lt')return`
+      <div class="logitem">
+        <div style="flex:1;min-width:0">
+          <div class="what">🏦 "${esc(x.name)}" 대출 (이자 ${x.interest}${S.icon})</div>
+          <div class="when mono">${fmt(x.ts)}</div>
+        </div>
+        <div class="amt minus">−${x.principal}</div>
+      </div>`;
+    if(x.type==='ld')return`
+      <div class="logitem">
+        <div style="flex:1;min-width:0">
+          <div class="what">✅ 대출 상환 완료 (총 ${x.principal+x.interest}${S.icon})</div>
+          <div class="when mono">${fmt(x.ts)}</div>
+        </div>
+        <div class="amt" style="color:var(--sub)">·</div>
+      </div>`;
+    if(x.type==='lc')return`
+      <div class="logitem">
+        <div style="flex:1;min-width:0">
+          <div class="what">🏦 대출 취소됨 (상환 ${x.repaid}/${x.principal+x.interest}${S.icon})</div>
+          <div class="when mono">${fmt(x.ts)}</div>
+        </div>
+        <div class="amt" style="color:var(--sub)">·</div>
       </div>`;
     return`
       <div class="logitem">
@@ -1052,7 +1222,7 @@ $('#earnEditSave').onclick=()=>{
 };
 window.delEarn=id=>{
   const e=S.earns.find(x=>x.id===id);if(!e)return;
-  if((e.usedAmt||0)>0){toast('이미 교환에 사용된 적립은 삭제할 수 없어요');return}
+  if((e.usedAmt||0)>0){toast('이미 교환·대출 상환에 사용된 적립은 삭제할 수 없어요');return}
   if(!confirm('이 적립 기록을 삭제할까요? (포인트도 함께 사라져요)'))return;
   S.earns=S.earns.filter(x=>x.id!==id);save();render();
 };
@@ -1069,11 +1239,20 @@ deedEl.addEventListener('input',()=>{
 function addEarn(what){
   const ev=isEventToday();
   const e={id:uid(),what,amt:ev?2:1,x2:ev,ts:Date.now(),usedAmt:0};
-  S.earns.push(e);save();
+  S.earns.push(e);
+  const hadLoan=!!S.loan;
+  repayLoanFrom();
+  save();
   const f=document.createElement('div');
   f.className='float';f.textContent=(ev?'+2 ':'+1 ')+S.icon;
   document.body.appendChild(f);setTimeout(()=>f.remove(),1000);
-  toast(ev?'더블 적립! +2 완료 🎉':'+1 적립 완료!');
+  if(hadLoan&&S.loan){
+    toast(`적립 완료! 대출 상환에 사용됨 (남은 빚 ${loanRemain()}${S.icon})`);
+  }else if(hadLoan&&!S.loan){
+    // repayLoanFrom이 이미 완료 토스트를 띄움
+  }else{
+    toast(ev?'더블 적립! +2 완료 🎉':'+1 적립 완료!');
+  }
   return e;
 }
 $('#earnBtn').onclick=()=>{
@@ -1124,19 +1303,21 @@ function showReceipt(w){
     if(!grouped[it.what]){grouped[it.what]={qty:0,pts:0,hasX2:false};order.push(it.what)}
     grouped[it.what].qty+=1;
     grouped[it.what].pts+=it.amt;
-    if(it.amt>1)grouped[it.what].hasX2=true;
+    if(it.x2)grouped[it.what].hasX2=true;
   });
   let anyX2=false;
   const items=order.map(name=>{
     const g=grouped[name];
     if(g.hasX2)anyX2=true;
+    const isLoan=name==='🏦 대출로 충당';
     return`
-    <div class="item">
+    <div class="item${isLoan?' loanrow':''}">
       <span class="nm">${esc(name)}${g.hasX2?' <b class="x2m">×2</b>':''}</span>
       <span class="qty">${g.qty}</span>
       <span class="prc">${g.pts}</span>
     </div>`;
   }).join('');
+  const loanRef=w.loanId?(S.loan&&S.loan.id===w.loanId?S.loan:S.loanHistory.find(l=>l.id===w.loanId)):null;
   const code=(w.id+'0000000000000').replace(/[^0-9]/g,'').slice(0,13).padEnd(13,'7');
   // 코드 숫자로 막대 폭 결정 (모든 브라우저/이미지 저장 호환)
   let seed=0;for(const ch of (w.id+code))seed=(seed*31+ch.charCodeAt(0))>>>0;
@@ -1160,6 +1341,7 @@ function showReceipt(w){
     <div class="colhead"><span class="nm">ITEM</span><span class="qty">QTY</span><span class="prc">PRICE</span></div>
     <div class="items">${items}</div>
     ${anyX2?`<div class="x2note">×2 = 더블 적립 이벤트로 2배 획득</div>`:''}
+    ${loanRef?`<div class="x2note">🏦 대출 이자 ${loanRef.interest}${S.icon} 별도 · 총 상환액 ${loanRef.principal+loanRef.interest}${S.icon}</div>`:''}
     <div class="total"><span>TOTAL</span><span>${S.icon} ${w.cost}</span></div>
     <div class="barcode" style="justify-content:center">${bars}</div>
     <div class="code">${code}</div>
@@ -1213,7 +1395,17 @@ function renderSettings(){
   $('#evList').innerHTML=S.evDates.map((d,i)=>`<span class="chip mono">${d}<button onclick="delDate(${i})">×</button></span>`).join('');
   if(document.activeElement!==$('#rcptName'))$('#rcptName').value=S.rcptName;
   if(document.activeElement!==$('#appNameInput'))$('#appNameInput').value=S.appName;
+  if(document.activeElement!==$('#loanLimitInput'))$('#loanLimitInput').value=S.loanLimit;
+  if(document.activeElement!==$('#loanRateInput'))$('#loanRateInput').value=Math.round(S.loanRate*100);
 }
+$('#loanLimitInput').addEventListener('input',e=>{
+  const v=parseInt(e.target.value,10);
+  S.loanLimit=isNaN(v)||v<0?0:v;save();renderVouchers();
+});
+$('#loanRateInput').addEventListener('input',e=>{
+  const v=parseInt(e.target.value,10);
+  S.loanRate=isNaN(v)||v<0?0:v/100;save();
+});
 $('#appNameInput').addEventListener('input',e=>{
   S.appName=e.target.value.trim()||'클로버상점';save();
   document.title=S.appName;$('#appTitle').textContent=S.appName;
@@ -1438,6 +1630,10 @@ $('#impFile').onchange=e=>{
       if(!Array.isArray(S.presets))S.presets=[];
       if(!Array.isArray(S.todos))S.todos=[];
       if(!Array.isArray(S.budgets))S.budgets=[];
+      if(!Array.isArray(S.loanHistory))S.loanHistory=[];
+      if(typeof S.loanLimit!=='number'||S.loanLimit<0)S.loanLimit=6;
+      if(typeof S.loanRate!=='number'||S.loanRate<0)S.loanRate=0.2;
+      if(S.loan&&(typeof S.loan.principal!=='number'||typeof S.loan.interest!=='number'))S.loan=null;
       S.rcptTheme=Object.assign({bg:'#F6BBD1',ink:'#1A1A1A'},S.rcptTheme||{});
       S.earns.forEach(x=>{if(typeof x.usedAmt!=='number')x.usedAmt=x.usedBy?x.amt:0});
       deedEl.value=S.draft||'';
